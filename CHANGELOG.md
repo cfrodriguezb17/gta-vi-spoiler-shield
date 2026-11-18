@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.2
+
+- **EN** — Approved posts stay visible during feed loading and scrolling in Smart and Combined modes, including when a site recreates the same post.
+- **EN** — YouTube hover previews and Shorts keep playing when menus or player controls update.
+- **ES** — Las publicaciones aprobadas se mantienen visibles al cargar y recorrer el feed en los modos Inteligente y Combinado, incluso cuando el sitio vuelve a crear la misma publicación.
+- **ES** — Las vistas previas y los Shorts de YouTube siguen reproduciéndose cuando se actualizan los menús o los controles.
+
 ## 1.2.1
 
 - **EN** — Combined mode covers content related to GTA VI and checks for known story events even when a post omits the game's name.

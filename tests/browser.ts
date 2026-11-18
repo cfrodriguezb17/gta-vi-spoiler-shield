@@ -54,6 +54,21 @@ const cases = [
 ];
 const trackNotices = `<script>
   window.fixtureNoticeCount = 0;
+  if (location.search.includes('participant')) {
+    let seen = false;
+    window.loadBlanks = 0;
+    const sample = () => {
+      const card = document.querySelector('#story');
+      if (card) {
+        const style = getComputedStyle(card);
+        const visible = style.visibility === 'visible' && style.display !== 'none' && Number(style.opacity) > 0;
+        if (seen && !visible) window.loadBlanks++;
+        seen ||= visible;
+      }
+      if (!window.stopLoadSample) requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  }
   new MutationObserver((records) => {
     for (const record of records) {
       for (const node of record.addedNodes) {
@@ -80,6 +95,13 @@ const fixtures = Bun.serve({
         ${short("ytd-reel-item-renderer", "classic", "GTA VI stunt jump")}
         ${short("ytm-shorts-lockup-view-model", "neutral", "A funny cat")}
         </ytd-reel-shelf-renderer>`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
+    if (url.pathname === "/shorts/cat") {
+      return new Response(`<!doctype html>
+        <ytd-reel-video-renderer id="story" style="display:block">
+          <h1>A funny cat</h1><div class="html5-video-player"><video></video></div>
+          <ytd-shorts-player-controls><button title="Play (k)" aria-label="Play (k)"></button></ytd-shorts-player-controls>
+        </ytd-reel-video-renderer>`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     const [, tag, attrs, permalink] = cases.find(([host]) => host === url.hostname) ?? cases[0];
     if (url.searchParams.has("staggered")) {
@@ -112,7 +134,7 @@ const fixtures = Bun.serve({
     const disguised = url.searchParams.has("disguised");
     const title = disguised ? "GТΑ V\u200bІ" : "GTA VI";
     const story = url.searchParams.has("lead-claim") ? "Luсía muer3" : url.searchParams.has("harmless")
-      ? "the official trailer is available"
+      ? (url.searchParams.has("participant") ? "Rhea reviews the trailer" : "the official trailer is available")
       : disguised ? "Rhеa tr@ici0n4 a M1l0" : "Rhea betrays Milo";
     const link = url.searchParams.has("permalink")
       ? `<a id="permalink" href="${permalink}101"><time>Posted today</time></a>`
@@ -660,7 +682,73 @@ try {
         "(globalThis.browser??chrome).runtime.sendMessage({type:'classify',text:'Rhea traiciona a Milo',context:'GTA VI'}).then(r=>r.hide)",
       );
       if (detection !== true) throw Error("Bilingual classification from the cached catalog failed");
+      async function stableFeed(mode: string) {
+        for (const [host, , , permalink] of cases) {
+          const address = url(host) + "?harmless&permalink&participant" + (mode === "combined" ? "&untagged" : "");
+          await d.go(address);
+          await state(false);
+          await d.go(address);
+          await state(false);
+          const report = JSON.parse(await d.js(`(async () => {
+            let card = document.querySelector('#story');
+            let blanks = 0, resets = 0, frames = 0;
+            const observer = new MutationObserver(records => {
+              resets += records.filter(r => r.target === card && r.oldValue === '' &&
+                !card.hasAttribute('data-vi-checked')).length;
+            });
+            observer.observe(document.body, {subtree:true, attributes:true,
+              attributeOldValue:true, attributeFilter:['data-vi-checked']});
+            const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+            const sample = async () => {
+              await frame();
+              const css = getComputedStyle(card);
+              if (!card.hasAttribute('data-vi-checked') || css.visibility === 'hidden' ||
+                  css.display === 'none' || Number(css.opacity) === 0) blanks++;
+              frames++;
+            };
+            const tooltip = document.createElement('div');
+            tooltip.setAttribute('role','tooltip');
+            tooltip.textContent = 'More options';
+            const menu = document.createElement('ytd-menu-renderer');
+            menu.innerHTML = '<button aria-label="Action menu"></button>';
+            card.append(tooltip);
+            if (location.hostname === 'www.youtube.com') card.append(menu);
+            const time = card.querySelector('time');
+            time.textContent = '2m';
+            card.querySelector('#permalink').setAttribute('aria-label','2 minutes ago');
+            await sample();
+            tooltip.remove(); menu.remove();
+            await sample();
+            scrollTo(0, innerHeight);
+            const copy = card.cloneNode(true);
+            copy.removeAttribute('data-vi-checked');
+            card.replaceWith(copy); card = copy;
+            scrollTo(0, 0);
+            for (let i = 0; i < 12; i++) await sample();
+            observer.disconnect();
+            window.stopLoadSample = true;
+            return JSON.stringify({blanks, resets, frames, loadBlanks:window.loadBlanks});
+          })()`));
+          if (report.blanks || report.resets || report.loadBlanks)
+            throw Error(name + " " + mode + " blanked an approved publication on " + host + " " + JSON.stringify(report));
+          // A recycled card gets its own decision, including when its text arrives later.
+          await d.js(`(() => {
+            const card = document.querySelector('#story');
+            card.querySelector('#permalink').setAttribute('href', ${JSON.stringify(permalink + "202")});
+            const prefix = ${mode === "smart" ? "'GTA VI: '" : "''"};
+            card.querySelector('span').textContent = prefix + 'Rhea discusses a trailer';
+            queueMicrotask(() => queueMicrotask(() => {
+              card.querySelector('span').textContent = prefix + 'Rhea betrays Milo';
+            }));
+          })()`);
+          await state(true);
+          await delay(220);
+          await state(true);
+        }
+        console.log(name, mode, "kept approved cards visible during hover, scroll and remounts on all five sites");
+      }
       await panel("document.querySelector('[value=smart]').click()");
+      await stableFeed("smart");
       for (const [host, , , permalink] of cases) {
         for (const query of ["?harmless", "?harmless&disguised"]) {
           await d.go(url(host) + query);
@@ -676,6 +764,7 @@ try {
       await d.go(url("x.com") + "?untagged&disguised");
       await state(false);
       await panel("document.querySelector('#combined').click()");
+      await stableFeed("combined");
       await d.go(url("x.com") + "?untagged&disguised");
       await state(true);
       await d.go(url("x.com") + "?untagged&lead-claim");
@@ -705,6 +794,57 @@ try {
       await shortState("neutral", true);
       await shortState("modern", true);
       console.log(name, "combined covered game mentions, untagged matches, rumors and individual YouTube search Shorts");
+      for (const [host] of cases) {
+        const youtube = host === "www.youtube.com";
+        await d.go(youtube ? new URL("/shorts/cat", results).href : url(host) + "?untagged&harmless");
+        await state(false);
+        const playback = JSON.parse(await d.js(`(async () => {
+          const card = document.querySelector('#story');
+          const video = card.querySelector('video');
+          const canvas = document.createElement('canvas');
+          video.muted = true;
+          video.srcObject = canvas.captureStream(5);
+          const frame = setInterval(() => canvas.getContext('2d').fillRect(0, 0, 20, 20), 25);
+          let hiddenAgain = false;
+          let pauses = 0;
+          const observer = new MutationObserver((records) => {
+            hiddenAgain ||= records.some((record) => record.oldValue === null) || !card.hasAttribute('data-vi-checked');
+          });
+          observer.observe(card, { attributes: true, attributeOldValue: true, attributeFilter: ['data-vi-checked'] });
+          const onPause = () => pauses++;
+          video.addEventListener('pause', onPause);
+          video.addEventListener('play', () => {
+            const button = card.querySelector('ytd-shorts-player-controls button');
+            if (button) {
+              button.title = 'Pause (k)';
+              button.setAttribute('aria-label', 'Pause (k)');
+            } else {
+              const slider = document.createElement('div');
+              slider.setAttribute('role', 'slider');
+              slider.setAttribute('aria-label', 'Playback position');
+              slider.textContent = '0:01';
+              card.append(slider);
+              card.querySelector('img').src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+            }
+          }, { once: true });
+          try {
+            await video.play().catch(() => {});
+            await new Promise((resolve) => setTimeout(resolve, 350));
+            return JSON.stringify({ hiddenAgain, pauses, playing: !video.paused && video.currentTime > 0 });
+          } finally {
+            video.removeEventListener('pause', onPause);
+            observer.disconnect();
+            clearInterval(frame);
+          }
+        })()`));
+        if (playback.hiddenAgain || playback.pauses || !playback.playing)
+          throw Error(name + " reblocked an approved card on " + host + " " + JSON.stringify(playback));
+        await d.js(`document.querySelector('#story ${youtube ? "h1" : "span"}').textContent = 'Rhea betrays Milo'`);
+        await state(true);
+        if (!(await d.js("document.querySelector('#story video').paused")))
+          throw Error(name + " did not pause newly hidden media on " + host);
+      }
+      console.log(name, "combined left approved media playing and covered new spoiler text across all five sites");
       await panel("document.querySelector('#smart').click()");
       await d.go(url(cases[0][0]));
       await state(true);
