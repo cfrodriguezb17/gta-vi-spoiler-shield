@@ -212,6 +212,25 @@ export function validEvent(e: StoryEvent): boolean {
   );
 }
 const phrase = (s: string) => " " + words(s).join(" ") + " ";
+// matches() requires every participant. One token from each possible name of
+// the first participant is sufficient to rule an event out, never to hide it.
+export function catalogParticipantTokens(events: StoryEvent[]): string[] | null {
+  const tokens = new Set<string>();
+  for (const event of events) {
+    const participant = event.participants[0];
+    if (!participant) return null;
+    for (const name of [participant.name, ...participant.aliases]) {
+      const token = words(name)[0];
+      if (!token) return null;
+      tokens.add(token);
+    }
+  }
+  return [...tokens];
+}
+export function mayMentionParticipant(text: string, context: string, tokens: ReadonlySet<string>) {
+  return words(readableText(text)).some(word => tokens.has(word)) ||
+    words(readableText(context)).some(word => tokens.has(word));
+}
 function positions(text: string, names: string[]) {
   return names.flatMap((name) => {
     const needle = phrase(name);

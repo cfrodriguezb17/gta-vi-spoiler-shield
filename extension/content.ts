@@ -1,12 +1,13 @@
 import { api, settings, type Settings } from "./api";
-import { siteFor, selectors, uncheckedCards, cardText, thread, identity } from "./adapters";
-import { gta, possibleStorySpoiler } from "../shared/model";
+import { siteFor, selectors, uncheckedCards, cardText, thread, publicationId, contentIdentity, hasCaption } from "./adapters";
+import { gta, mayMentionParticipant, possibleStorySpoiler } from "../shared/model";
 import { resolveLocale, translate } from "./i18n";
 const site = siteFor(location.hostname);
 if (site) protect(site);
 type CardState = {
   signature: string;
   key: string;
+  publication?: string;
   decision: "pending" | "covered" | "visible";
   notice?: HTMLElement;
   revealed?: boolean;
@@ -15,9 +16,13 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   const selector = selectors[site],
     blockedMedia = `${uncheckedCards(selector)},[data-vi-covered]`,
     states = new WeakMap<Element, CardState>(),
-    firstChecks = new WeakMap<Element, "waiting" | "ready">(),
+    firstChecks = new WeakMap<Element, { ready: boolean }>(),
     noticeOwners = new WeakMap<Node, Element>();
+  // Virtual feeds remount posts into fresh elements. Only confirmed automatic
+  // decisions are reusable, and only with the same publication and classifier inputs.
+  const decisions = new Map<string, { signature: string; hide: boolean }>();
   let config: Settings | undefined,
+    participantTokens: Set<string> | undefined,
     locale = resolveLocale("auto"),
     epoch = 0,
     href = location.href;
@@ -35,7 +40,7 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   function allow(card: Element, state: CardState) {
     state.decision = "visible";
     removeNotice(card, state);
-    card.setAttribute("data-vi-checked", "");
+    if (!card.hasAttribute("data-vi-checked")) card.setAttribute("data-vi-checked", "");
   }
   function pause(card: Element) {
     card.querySelectorAll("video,audio").forEach((el) => (el as HTMLMediaElement).pause());
@@ -63,7 +68,9 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     function reveal() {
       const state = states.get(card);
       if (state?.notice !== notice || notice.nextElementSibling !== card) return;
-      if (cardKey(card, cardText(card, selector), thread(card, site, selector)) !== state.key) {
+      const key = publicationId(card, site, selector) ??
+        contentIdentity(card, selector, cardText(card, selector) + "\u001e" + thread(card, site, selector));
+      if (key !== state.key) {
         visit(card);
         return;
       }
@@ -88,16 +95,15 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     noticeOwners.set(notice, card);
     card.before(notice);
   }
-  function cardKey(card: Element, text: string, context: string) {
-    return identity(card, site, selector, [text, context].join("\u001e"));
-  }
   function waitingForFirstContent(card: Element) {
     const check = firstChecks.get(card);
-    if (check) return check === "waiting";
+    if (check) return !check.ready;
     // The feed can insert a preview and supply its caption in a later frame.
-    firstChecks.set(card, "waiting");
+    const gate = { ready: false };
+    firstChecks.set(card, gate);
     setTimeout(() => {
-      firstChecks.set(card, "ready");
+      if (firstChecks.get(card) !== gate) return;
+      gate.ready = true;
       if (card.isConnected) {
         dirty.add(card);
         schedule();
@@ -108,15 +114,22 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   function visit(card: Element) {
     if (!card.isConnected) {
       removeNotice(card);
+      if (states.get(card)?.decision === "pending") states.delete(card);
       return;
     }
     if (!config) return;
     const text = cardText(card, selector),
       context = thread(card, site, selector),
-      key = cardKey(card, text, context);
-    const signature = [epoch, key, text, context].join("\u001e"),
+      publication = publicationId(card, site, selector),
+      key = publication ?? contentIdentity(card, selector, text + "\u001e" + context);
+    const signature = JSON.stringify([epoch, text, context]),
       previous = states.get(card);
-    if (previous?.signature === signature) {
+    const replaced = previous?.publication !== undefined && publication !== undefined && previous.publication !== publication;
+    // Media sources can change while a card plays or lazy-loads. Only a manual
+    // reveal depends on identity when the text and classification inputs match.
+    if (!replaced && previous?.signature === signature && (previous.key === key || !previous.revealed)) {
+      previous.key = key;
+      previous.publication = publication;
       if (previous.decision === "covered" && previous.notice?.nextElementSibling !== card)
         cover(card, previous);
       return;
@@ -127,24 +140,38 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     const combined = config.mode === "combined";
     const hideNow = (related && config.mode !== "smart") ||
       (combined && !bypass && possibleStorySpoiler(text, context));
-    if (!previous && site !== "youtube" && !bypass && !hideNow && waitingForFirstContent(card)) {
+    const cached = publication ? decisions.get(publication) : undefined;
+    const reuse = cached?.signature === signature;
+    if (replaced) firstChecks.delete(card);
+    if ((!previous || replaced) && !reuse && !bypass && !hideNow && !hasCaption(card, site) && waitingForFirstContent(card)) {
+      removeNotice(card);
+      states.delete(card);
       card.removeAttribute("data-vi-checked");
-      card.removeAttribute("data-vi-covered");
       pause(card);
       return;
     }
-    const state: CardState = { signature, key, revealed, decision: "pending", notice: previous?.notice };
+    const state: CardState = { signature, key, publication, revealed, decision: "pending", notice: previous?.notice };
     states.set(card, state);
+    function decide(hide: boolean, remember: boolean) {
+      if (remember && publication) {
+        decisions.delete(publication);
+        decisions.set(publication, { signature, hide });
+        if (decisions.size > 256) decisions.delete(decisions.keys().next().value!);
+      }
+      if (hide) cover(card, state);
+      else allow(card, state);
+    }
     if (bypass) {
       allow(card, state);
       return;
     }
-    if (hideNow) {
-      cover(card, state);
+    if (reuse) {
+      decide(cached.hide, false);
       return;
     }
-    if ((combined && !text) || (!combined && !related)) {
-      allow(card, state);
+    if (hideNow || (combined && !text) || (!combined && !related) ||
+        (participantTokens && !mayMentionParticipant(text, context, participantTokens))) {
+      decide(hideNow, true);
       return;
     }
     // Keep the card private during inference without showing a speculative warning.
@@ -152,16 +179,15 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     if (previous?.key !== key) removeNotice(card, state);
     pause(card);
     const fallback = !combined;
-    const timeout = setTimeout(() => finish(fallback), 3000);
-    function finish(hide: boolean) {
+    const timeout = setTimeout(() => finish(), 3000);
+    function finish(hide?: boolean) {
       clearTimeout(timeout);
       if (!card.isConnected || states.get(card) !== state || state.decision !== "pending") return;
-      if (hide) cover(card, state);
-      else allow(card, state);
+      decide(hide ?? fallback, hide !== undefined);
     }
     api.runtime.sendMessage({ type: "classify", text, context, combined }).then(
-      (reply: any) => finish(typeof reply?.hide === "boolean" ? reply.hide : fallback),
-      () => finish(fallback),
+      (reply: any) => finish(typeof reply?.hide === "boolean" ? reply.hide : undefined),
+      () => finish(),
     );
   }
   function all() {
@@ -268,6 +294,15 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   window.addEventListener("popstate", all);
   const nav = (window as any).navigation;
   nav?.addEventListener("currententrychange", all);
+  function refreshParticipantTokens() {
+    participantTokens = undefined;
+    if (!config || config.mode === "preventive" || config.disabled.includes(site)) return;
+    const generation = epoch;
+    api.runtime.sendMessage({ type: "participantTokens" }).then((tokens: unknown) => {
+      if (epoch === generation && Array.isArray(tokens) && tokens.every(t => typeof t === "string"))
+        participantTokens = new Set(tokens);
+    }, () => {});
+  }
   function applySettings(next: Settings) {
     const previous = config;
     config = next;
@@ -286,12 +321,15 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     const protectionChanged = changes.settings && applySettings(settings(changes.settings.newValue));
     if (protectionChanged || changes.catalogVersion) {
       epoch++;
+      decisions.clear();
+      refreshParticipantTokens();
       all();
     }
   });
   function initialize(value?: Partial<Settings>) {
     if (config) return;
     applySettings(settings(value));
+    refreshParticipantTokens();
     all();
   }
   api.storage.local.get("settings").then(

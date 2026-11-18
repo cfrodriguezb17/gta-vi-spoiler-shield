@@ -1,6 +1,6 @@
 import { api } from "./api";
-import { apply, cursor, type Cursor } from "./db";
-import { modelVersion } from "../shared/model";
+import { apply, cursor, events, type Cursor } from "./db";
+import { catalogParticipantTokens, modelVersion } from "../shared/model";
 import { classify, invalidate, type Query } from "./classifier";
 declare const ENDPOINT: string;
 let running: Promise<void> | undefined,
@@ -121,6 +121,7 @@ api.runtime.onMessage.addListener((msg: any, _sender: any, respond: (r: any) => 
     if (msg.type === "status" || msg.type === "sync")
       return { cursor: await cursor(), ...(await api.storage.local.get("syncError")) };
     if (msg.type === "classify") return await detect(msg);
+    if (msg.type === "participantTokens") return catalogParticipantTokens(await events());
   };
   handle().then(respond, () => respond({ error: true }));
   return true;

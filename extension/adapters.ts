@@ -9,6 +9,16 @@ const youtubeShortCards = [
   "ytm-shorts-lockup-view-model",
   "ytm-shorts-lockup-view-model-v2",
 ].join(",");
+const controls = [
+  "time,[role=timer],[role=slider],[role=progressbar],[role=tooltip],progress,input[type=range]",
+  "shreddit-post-action-row,shreddit-comment-action-row,shreddit-player-controls",
+  "[data-testid=videoPlayer],[role=group]:has([data-testid=reply]):has([data-testid=like],[data-testid=unlike])",
+  "[data-testid=like],[data-testid=unlike],[data-testid=retweet],[data-testid=unretweet],a[href$='/analytics']",
+  "ytd-menu-renderer,yt-button-shape,yt-icon-button,tp-yt-paper-tooltip,ytd-thumbnail-overlay-time-status-renderer",
+  "ytd-thumbnail-overlay-toggle-button-renderer,ytd-thumbnail-overlay-hover-text-renderer,ytd-thumbnail-overlay-now-playing-renderer",
+  "yt-thumbnail-overlay-badge-view-model,yt-thumbnail-hover-overlay-toggle-actions-view-model",
+  ".html5-video-player,ytd-shorts-player-controls,desktop-shorts-player-controls",
+].join(",");
 export const selectors: Record<Site, string> = {
   reddit:
     "shreddit-post,shreddit-comment,.thing.link,.thing.comment,[data-testid=post-container],[data-testid=comment]",
@@ -26,6 +36,18 @@ export const selectors: Record<Site, string> = {
 export function uncheckedCards(selector: string) {
   return `:is(${selector}):not([data-vi-checked])`;
 }
+const captions: Record<Site, string> = {
+  reddit: "[slot=title],[slot=text-body],.usertext-body,a.title",
+  youtube: "#video-title,#video-title-link,.yt-lockup-metadata-view-model__title,h1,h3,#content-text",
+  x: "[data-testid=tweetText]",
+  facebook: "[data-ad-preview=message],[data-ad-comet-preview=message]",
+  instagram: "h1,[role=heading]",
+};
+export function hasCaption(card: Element, site: Site) {
+  if (site === "reddit" && card.getAttribute("post-title")?.trim()) return true;
+  return Array.from(card.querySelectorAll(captions[site])).some(el =>
+    el.closest(selectors[site]) === card && !!el.textContent?.trim());
+}
 export function siteFor(host: string): Site | undefined {
   const domains: Record<Site, string[]> = {
     reddit: ["reddit.com"],
@@ -38,16 +60,26 @@ export function siteFor(host: string): Site | undefined {
     domains[site].some((d) => host === d || host.endsWith("." + d)),
   );
 }
+const relativeTime = /^(?:\d+[smhdw]|(?:hace\s+)?\d+\s+(?:seconds?|minutes?|hours?|days?|weeks?|segundos?|minutos?|horas?|días?|semanas?)(?:\s+ago)?)$/i;
+const counter = /^\d[\d.,\s]*(?:(?:k|m|mil|million|millones?)\s*)?(?:(?:views?|likes?|replies|comments?|shares?|reposts?|vistas?|visualizaciones|me gusta|respuestas?|comentarios?|veces compartido))?$/i;
+const metadata = "button,[role=button],#metadata-line,yt-content-metadata-view-model,.yt-content-metadata-view-model__metadata-row";
 export function cardText(card: Element, selector: string) {
-  const parts: string[] = [];
-  const visit = (node: Node) => {
+  const parts = new Set<string>();
+  const referenced = new Set<Element>();
+  function add(value: string | null, owner: Element | null) {
+    const part = value?.trim().replace(/\s+/g, " ");
+    if (!part) return;
+    if ((counter.test(part) || relativeTime.test(part)) && owner?.closest(metadata + ",a:has(time)")) return;
+    parts.add(part);
+  }
+  const visit = (node: Node, readReferences = true) => {
     if (node instanceof Text) {
-      if (node.textContent?.trim()) parts.push(node.textContent.trim());
+      add(node.textContent, node.parentElement);
       return;
     }
     if (
       !(node instanceof Element) ||
-      node.matches("script,style,template,[data-vi-notice]") ||
+      node.matches("script,style,template,[data-vi-notice]," + controls) ||
       (node !== card && node.matches(selector))
     )
       return;
@@ -59,21 +91,25 @@ export function cardText(card: Element, selector: string) {
       "post-title",
       "subreddit-prefixed-name",
     ]) {
-      const value = node.getAttribute(attr);
-      if (value) parts.push(value);
+      add(node.getAttribute(attr), node);
     }
-    for (const attr of ["aria-labelledby", "aria-describedby"]) {
-      for (const id of (node.getAttribute(attr) ?? "").split(/\s+/).filter(Boolean)) {
-        const label = document.getElementById(id)?.textContent?.trim();
-        if (label) parts.push(label.slice(0, 1000));
+    if (readReferences) {
+      for (const attr of ["aria-labelledby", "aria-describedby"]) {
+        for (const id of (node.getAttribute(attr) ?? "").split(/\s+/).filter(Boolean)) {
+          const label = document.getElementById(id);
+          if (label && !referenced.has(label) && !label.closest(controls) && !label.contains(node)) {
+            referenced.add(label);
+            visit(label, false);
+          }
+        }
       }
     }
-    for (const child of node.childNodes) visit(child);
+    for (const child of node.childNodes) visit(child, readReferences);
   };
   visit(card);
-  return [...new Set(parts)].join(" ").slice(0, 12000);
+  return [...parts].join(" ").slice(0, 12000);
 }
-export function identity(card: Element, site: Site, selector: string, fallback: string) {
+export function publicationId(card: Element, site: Site, selector: string) {
   const route = location.pathname + location.search;
   if (site === "youtube" && card.matches("ytd-watch-metadata") && location.pathname === "/watch")
     return JSON.stringify([route, "watch"]);
@@ -99,12 +135,14 @@ export function identity(card: Element, site: Site, selector: string, fallback: 
       return JSON.stringify([route, "link", ref.pathname, params.get("v"), params.get("story_fbid")]);
     }
   }
-  // Preserve the full comparison for cards without a reliable publication reference.
+}
+// Only a manual reveal needs a conservative identity when a permalink is missing.
+export function contentIdentity(card: Element, selector: string, fallback: string) {
   const media = Array.from(card.querySelectorAll("img,video"))
     .filter((el) => el.closest(selector) === card)
     .map((el) => [el.getAttribute("src"), el.getAttribute("poster")].join(" "))
     .join("\n");
-  return JSON.stringify([route, "content", card.id, card.getAttribute("data-id"), media, fallback]);
+  return JSON.stringify([location.pathname + location.search, "content", card.id, card.getAttribute("data-id"), media, fallback]);
 }
 export function thread(card: Element, site: Site, selector: string) {
   const parent = card.parentElement?.closest(selector);

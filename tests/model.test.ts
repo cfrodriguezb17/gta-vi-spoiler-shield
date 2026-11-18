@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { kernel, embed, gta, possibleStorySpoiler, shouldHide, type StoryEvent } from "../shared/model";
+import { catalogParticipantTokens, mayMentionParticipant, kernel, embed, gta, possibleStorySpoiler, shouldHide, type StoryEvent } from "../shared/model";
 import cases from "./cases.json";
 import world from "../shared/official-world.json";
 const wasm = await kernel(await Bun.file("shared/vector.wasm").arrayBuffer());
@@ -36,6 +36,17 @@ const catalog = [
   event("2", "Rex rescues Iris", "rescue", "Rex", "Iris", 9, ["rescued", "rescatada"]),
   event("3", "Professor Vale dies", "die", "Professor Vale", null, null, [], ["Prof Vale"]),
 ];
+test("the local participant check preserves catalog matches, aliases and inherited context", () => {
+  const tokens = new Set(catalogParticipantTokens(catalog));
+  for (const set of Object.values(cases)) {
+    for (const text of set.spoilers) expect(mayMentionParticipant(text, "", tokens)).toBe(true);
+  }
+  expect(mayMentionParticipant("Sí, fue él", "R3x r3scat4 a Irіs", tokens)).toBe(true);
+  expect(mayMentionParticipant("𝔊𝔗𝔄 Ⅵ: R.h.e.a b3trayѕ M\u200bilо", "", tokens)).toBe(true);
+  expect(mayMentionParticipant("Prof Vale dies", "", tokens)).toBe(true);
+  expect(mayMentionParticipant("A cat plays the piano", "", tokens)).toBe(false);
+  expect(catalogParticipantTokens([event("x", "example", "die", "Rex", null, null, [], ["🎮"])])).toBeNull();
+});
 for (const [lang, set] of Object.entries(cases))
   test("held-out sentences " + lang, () => {
     const score = (q: string) => shouldHide(q, "", catalog, wasm);
