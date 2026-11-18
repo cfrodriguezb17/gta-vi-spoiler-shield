@@ -1,7 +1,7 @@
 import { mkdir, copyFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { version } from "../package.json";
-import { selectors } from "../extension/adapters";
+import { selectors, uncheckedCards } from "../extension/adapters";
 const endpoint = new URL(process.env.CATALOG_URL ?? "http://127.0.0.1:5071");
 if (
   endpoint.protocol !== "https:" &&
@@ -51,10 +51,12 @@ for (const browser of ["chrome", "firefox"]) {
   const content_scripts = [];
   for (const [key, hosts] of Object.entries(domains)) {
     const css = key + ".css";
-    const pending = ":is(" + selectors[key as keyof typeof selectors] + "):not([data-vi-checked])";
+    const pending = uncheckedCards(selectors[key as keyof typeof selectors]);
     await writeFile(
       dir + "/" + css,
-      pending + "," + pending + " *{visibility:hidden!important}[data-vi-covered]{display:none!important}\n",
+      pending + "{opacity:0!important;transition:none!important}\n" +
+        pending + "," + pending + " *{visibility:hidden!important}\n" +
+        "[data-vi-covered]{display:none!important;transition:none!important}\n",
     );
     content_scripts.push({
       matches: hosts.map((d) => "https://*." + d + "/*"),

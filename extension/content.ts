@@ -1,5 +1,5 @@
 import { api, settings, type Settings } from "./api";
-import { siteFor, selectors, cardText, thread, identity } from "./adapters";
+import { siteFor, selectors, uncheckedCards, cardText, thread, identity } from "./adapters";
 import { gta, possibleStorySpoiler } from "../shared/model";
 import { resolveLocale, translate } from "./i18n";
 const site = siteFor(location.hostname);
@@ -13,7 +13,9 @@ type CardState = {
 };
 function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   const selector = selectors[site],
+    blockedMedia = `${uncheckedCards(selector)},[data-vi-covered]`,
     states = new WeakMap<Element, CardState>(),
+    firstChecks = new WeakMap<Element, "waiting" | "ready">(),
     noticeOwners = new WeakMap<Node, Element>();
   let config: Settings | undefined,
     locale = resolveLocale("auto"),
@@ -41,9 +43,7 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   document.addEventListener(
     "play",
     (event) => {
-      if (!(event.target instanceof HTMLMediaElement)) return;
-      const card = event.target.closest(selector);
-      if (event.target.closest("[data-vi-covered]") || (card && states.get(card)?.decision === "pending"))
+      if (event.target instanceof HTMLMediaElement && event.target.closest(blockedMedia))
         event.target.pause();
     },
     true,
@@ -91,6 +91,20 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   function cardKey(card: Element, text: string, context: string) {
     return identity(card, site, selector, [text, context].join("\u001e"));
   }
+  function waitingForFirstContent(card: Element) {
+    const check = firstChecks.get(card);
+    if (check) return check === "waiting";
+    // The feed can insert a preview and supply its caption in a later frame.
+    firstChecks.set(card, "waiting");
+    setTimeout(() => {
+      firstChecks.set(card, "ready");
+      if (card.isConnected) {
+        dirty.add(card);
+        schedule();
+      }
+    }, 180);
+    return true;
+  }
   function visit(card: Element) {
     if (!card.isConnected) {
       removeNotice(card);
@@ -108,15 +122,24 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
       return;
     }
     const revealed = previous?.key === key && previous.revealed;
+    const bypass = config.disabled.includes(site) || revealed;
+    const related = !bypass && (gta(text) || gta(context));
+    const combined = config.mode === "combined";
+    const hideNow = (related && config.mode !== "smart") ||
+      (combined && !bypass && possibleStorySpoiler(text, context));
+    if (!previous && site !== "youtube" && !bypass && !hideNow && waitingForFirstContent(card)) {
+      card.removeAttribute("data-vi-checked");
+      card.removeAttribute("data-vi-covered");
+      pause(card);
+      return;
+    }
     const state: CardState = { signature, key, revealed, decision: "pending", notice: previous?.notice };
     states.set(card, state);
-    if (config.disabled.includes(site) || revealed) {
+    if (bypass) {
       allow(card, state);
       return;
     }
-    const related = gta(text) || gta(context),
-      combined = config.mode === "combined";
-    if ((related && config.mode !== "smart") || (combined && possibleStorySpoiler(text, context))) {
+    if (hideNow) {
       cover(card, state);
       return;
     }
@@ -162,8 +185,16 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   }
   function collect(node: Node) {
     if (!(node instanceof Element) || node.hasAttribute("data-vi-notice")) return;
-    if (node.matches(selector)) dirty.add(node);
-    node.querySelectorAll(selector).forEach((c) => dirty.add(c));
+    function queue(card: Element) {
+      // Sites can clone a card along with the extension's attributes.
+      if (!states.has(card)) {
+        card.removeAttribute("data-vi-checked");
+        card.removeAttribute("data-vi-covered");
+      }
+      dirty.add(card);
+    }
+    if (node.matches(selector)) queue(node);
+    node.querySelectorAll(selector).forEach(queue);
   }
   new MutationObserver((records) => {
     if (location.href !== href) {

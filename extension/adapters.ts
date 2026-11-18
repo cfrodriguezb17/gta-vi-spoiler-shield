@@ -23,6 +23,9 @@ export const selectors: Record<Site, string> = {
   instagram:
     "article,[role=dialog] ul li,main a[href^='/p/']:not(article a),main a[href^='/reel/']:not(article a)",
 };
+export function uncheckedCards(selector: string) {
+  return `:is(${selector}):not([data-vi-checked])`;
+}
 export function siteFor(host: string): Site | undefined {
   const domains: Record<Site, string[]> = {
     reddit: ["reddit.com"],

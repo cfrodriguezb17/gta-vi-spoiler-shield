@@ -44,8 +44,10 @@ jobs:
           bun scripts/check-packages.ts
           bunx --package web-ext@10.8.0 web-ext lint --source-dir dist/firefox
           git archive --format=zip -o "$RUNNER_TEMP/source.zip" HEAD
-          bunx --package web-ext@10.8.0 web-ext sign --source-dir dist/firefox --channel unlisted --upload-source-code "$RUNNER_TEMP/source.zip" --artifacts-dir signed --approval-timeout 3600000
-          cp signed/*.xpi dist/firefox.xpi
+          bun scripts/sign-firefox.ts "$RUNNER_TEMP/source.zip"
+          unzip -q dist/firefox.xpi -d "$RUNNER_TEMP/signed-firefox"
+          test -s "$RUNNER_TEMP/signed-firefox/META-INF/cose.sig"
+          diff -qr --exclude=META-INF dist/firefox "$RUNNER_TEMP/signed-firefox"
           cd dist
           sha256sum chrome.zip firefox.xpi > SHA256SUMS
           gh release create "$TAG" chrome.zip firefox.xpi SHA256SUMS --draft --target "$GITHUB_SHA" --title "$TAG" --notes-file ../CHANGELOG.md

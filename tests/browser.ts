@@ -82,6 +82,33 @@ const fixtures = Bun.serve({
         </ytd-reel-shelf-renderer>`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
     const [, tag, attrs, permalink] = cases.find(([host]) => host === url.hostname) ?? cases[0];
+    if (url.searchParams.has("staggered")) {
+      return new Response(`<!doctype html>
+        <style>
+          #story { display: block; }
+          #story img { visibility: visible !important; }
+        </style>
+        <${tag} ${attrs} id="story"><img width="80" height="100" alt="Preview"><span></span></${tag}>
+        <script>
+          const card = document.querySelector("#story");
+          const preview = card.querySelector("img");
+          let captionPending = true;
+          window.previewFlashed = false;
+          function beforeCaption() {
+            if (!captionPending) return;
+            const shown = preview.getBoundingClientRect().width > 0 &&
+              getComputedStyle(preview).visibility === "visible" &&
+              Number(getComputedStyle(card).opacity) > 0;
+            window.previewFlashed ||= shown;
+            requestAnimationFrame(beforeCaption);
+          }
+          setTimeout(() => {
+            captionPending = false;
+            card.querySelector("span").textContent = "GTA VI: Rhea betrays Milo";
+          }, 90);
+          requestAnimationFrame(beforeCaption);
+        </script>`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
     const disguised = url.searchParams.has("disguised");
     const title = disguised ? "GТΑ V\u200bІ" : "GTA VI";
     const story = url.searchParams.has("lead-claim") ? "Luсía muer3" : url.searchParams.has("harmless")
@@ -532,6 +559,12 @@ try {
         await state(true);
       }
       for (const [host, , , permalink] of cases) {
+        if (host !== "www.youtube.com") {
+          await d.go(url(host) + "?staggered");
+          await state(true);
+          if (await d.js("window.previewFlashed"))
+            throw Error(name + " exposed a preview before receiving its caption on " + host);
+        }
         await d.go(url(host));
         await state(true);
         await d.js(
@@ -578,7 +611,7 @@ try {
         );
         await state(true);
         await d.js(
-          "const next=document.querySelector('#story').cloneNode(true); next.id='more';next.removeAttribute('data-vi-checked');next.removeAttribute('data-vi-covered');document.body.append(next);scrollTo(0,document.body.scrollHeight)",
+          "const next=document.querySelector('#story').cloneNode(true); next.id='more';document.body.append(next);scrollTo(0,document.body.scrollHeight)",
         );
         await until(() => d.js("document.querySelectorAll('[data-vi-notice]').length===2"), "infinite feed");
         await d.go(url(host) + "?disguised");
