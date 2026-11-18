@@ -9,6 +9,8 @@
   "preventiveHelp": { "message": "Cubre las publicaciones relacionadas con GTA VI." },
   "smart": { "message": "Inteligente" },
   "smartHelp": { "message": "Cubre publicaciones que coinciden con eventos conocidos de la historia." },
+  "combined": { "message": "Combinado" },
+  "combinedHelp": { "message": "Cubre publicaciones de GTA VI y posibles spoilers que omiten el nombre del juego." },
   "protectedNetworks": { "message": "Redes protegidas" },
   "sync": { "message": "Sincronizar" },
   "lastSync": { "message": "Última sincronización" },

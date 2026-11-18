@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { kernel, embed, gta, shouldHide, type StoryEvent } from "../shared/model";
+import { kernel, embed, gta, possibleStorySpoiler, shouldHide, type StoryEvent } from "../shared/model";
 import cases from "./cases.json";
 import world from "../shared/official-world.json";
 const wasm = await kernel(await Bun.file("shared/vector.wasm").arrayBuffer());
@@ -100,6 +100,23 @@ test("encoder is deterministic, finite, unit-normalized, and bilingual", () => {
   expect(a.length).toBe(384);
   expect(a.reduce((s, x) => s + x * x, 0)).toBeCloseTo(1);
 });
+test("combined checks plot matches without a game reference and flags short rumors", () => {
+  const check = (text: string, context = "") => shouldHide(text, context, catalog, wasm, true);
+  expect(shouldHide("Rhea betrays Milo", "", catalog, wasm)).toBe(false);
+  expect(check("Rhea betrays Milo")).toBe(true);
+  expect(check("Rhеa tr@ici0n4 a M1l0")).toBe(true);
+  expect(check("Sí, fue él", "Rex rescata a Iris")).toBe(true);
+  expect(check("Milo betrays Rhea")).toBe(false);
+  expect(check("Rhea no traiciona a Milo")).toBe(false);
+  expect(check("Rhea betrays Milo", "GTA V")).toBe(false);
+  expect(check("Rhea and Milo review a trailer")).toBe(false);
+  expect(possibleStorySpoiler("Luсía muer3", "")).toBe(true);
+  expect(possibleStorySpoiler("Jason was killed", "")).toBe(true);
+  expect(possibleStorySpoiler("Un clip de Jason y Lucía", "")).toBe(true);
+  expect(possibleStorySpoiler("Lucía recomienda una película", "")).toBe(false);
+  expect(possibleStorySpoiler("Lucía no muere", "")).toBe(false);
+  expect(possibleStorySpoiler("Lucía muere", "GTA V")).toBe(false);
+});
 test("official world context and plot stay distinct in intelligent mode", () => {
   const published: StoryEvent[] = world.story.map((fact) => ({
     ...fact,
@@ -128,4 +145,5 @@ test("official world context and plot stay distinct in intelligent mode", () => 
   expect(hides("GTA VI: Lucia no sale de prisión")).toBe(false);
   expect(hides("GTA V: Lucia Caminos sale de prisión", "GTA VI")).toBe(false);
   expect(hides("GTA VI: Lucía muere")).toBe(false);
+  expect(shouldHide("Lucía sale de prisión", "", published, wasm, true)).toBe(true);
 });

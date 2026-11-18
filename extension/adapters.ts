@@ -1,12 +1,22 @@
 import type { Site } from "./api";
 const youtubeVideoCards = "ytd-rich-item-renderer,ytd-video-renderer,ytd-grid-video-renderer,ytd-compact-video-renderer";
+const youtubeShortCards = [
+  "ytd-reel-item-renderer",
+  "ytm-reel-item-renderer",
+  "ytd-reel-video-renderer",
+  "yt-shorts-lockup-view-model",
+  "yt-shorts-lockup-view-model-v2",
+  "ytm-shorts-lockup-view-model",
+  "ytm-shorts-lockup-view-model-v2",
+].join(",");
 export const selectors: Record<Site, string> = {
   reddit:
     "shreddit-post,shreddit-comment,.thing.link,.thing.comment,[data-testid=post-container],[data-testid=comment]",
   youtube: [
     youtubeVideoCards,
-    `yt-lockup-view-model:not(:is(${youtubeVideoCards}) *)`,
-    "ytd-comment-view-model,ytd-comment-renderer,ytd-reel-video-renderer,ytm-video-with-context-renderer,ytd-watch-metadata",
+    `yt-lockup-view-model:not(:is(${youtubeVideoCards},${youtubeShortCards}) *)`,
+    `:is(${youtubeShortCards}):not(:is(${youtubeVideoCards},${youtubeShortCards},yt-lockup-view-model) *)`,
+    "ytd-comment-view-model,ytd-comment-renderer,ytm-video-with-context-renderer,ytd-watch-metadata",
   ].join(","),
   x: "article[data-testid=tweet],[data-testid=cellInnerDiv] [role=article]",
   facebook: "[role=article],[data-pagelet^=FeedUnit_],div[aria-posinset][aria-describedby]",
@@ -112,6 +122,10 @@ export function thread(card: Element, site: Site, selector: string) {
       .closest("ytd-comment-thread-renderer")
       ?.querySelector("ytd-comment-view-model,ytd-comment-renderer");
     if (first && first !== card) parts.push(cardText(first, selector));
+  }
+  if (site === "youtube" && location.pathname === "/results" &&
+      (card.matches(youtubeShortCards) || card.querySelector("a[href*='/shorts/']"))) {
+    parts.push(new URLSearchParams(location.search).get("search_query") ?? "");
   }
   if (site === "x" && /\/status\/\d+/.test(location.pathname)) {
     const root = document.querySelector("article[data-testid=tweet]");

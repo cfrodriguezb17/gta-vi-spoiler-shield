@@ -48,7 +48,7 @@ async function init() {
     const data = new FormData(form);
     const previousLanguage = current.language;
     current = settings({
-      mode: data.get("mode") === "smart" ? "smart" : "preventive",
+      mode: data.get("mode"),
       disabled: sites.filter((s) => !data.has(s)),
       language: language.value as Language,
     });

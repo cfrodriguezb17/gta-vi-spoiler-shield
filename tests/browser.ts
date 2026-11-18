@@ -70,17 +70,28 @@ const fixtures = Bun.serve({
   tls: { cert: await readFile(cert), key: await readFile(key) },
   fetch(req) {
     const url = new URL(req.url);
+    if (url.pathname === "/results") {
+      const short = (tag: string, id: string, title: string, nested = false) => {
+        const link = `<a href="/shorts/${id}" aria-label="${title}"><img width="80" height="100" alt="Thumbnail"><span>${title}</span></a>`;
+        return `<${tag} id="${id}" style="display:block">${nested ? `<ytm-shorts-lockup-view-model>${link}</ytm-shorts-lockup-view-model>` : link}</${tag}>`;
+      };
+      return new Response(`<!doctype html>${trackNotices}<ytd-reel-shelf-renderer>
+        ${short("ytm-shorts-lockup-view-model-v2", "modern", "GТΑ VІ trailer", true)}
+        ${short("ytd-reel-item-renderer", "classic", "GTA VI stunt jump")}
+        ${short("ytm-shorts-lockup-view-model", "neutral", "A funny cat")}
+        </ytd-reel-shelf-renderer>`, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
     const [, tag, attrs, permalink] = cases.find(([host]) => host === url.hostname) ?? cases[0];
     const disguised = url.searchParams.has("disguised");
     const title = disguised ? "GТΑ V\u200bІ" : "GTA VI";
-    const story = url.searchParams.has("harmless")
+    const story = url.searchParams.has("lead-claim") ? "Luсía muer3" : url.searchParams.has("harmless")
       ? "the official trailer is available"
       : disguised ? "Rhеa tr@ici0n4 a M1l0" : "Rhea betrays Milo";
     const link = url.searchParams.has("permalink")
       ? `<a id="permalink" href="${permalink}101"><time>Posted today</time></a>`
       : "";
     const mission = url.searchParams.has("mission8") ? " in mission 8" : "";
-    const content = `<span>${title}: ${story}${mission}</span><img alt="private thumbnail"><video></video>${link}`;
+    const content = `<span>${url.searchParams.has("untagged") ? "" : title + ": "}${story}${mission}</span><img alt="private thumbnail"><video></video>${link}`;
     const nested = url.searchParams.has("nested");
     const wrapped = nested ? `<yt-lockup-view-model>${content}</yt-lockup-view-model>` : content;
     return new Response(
@@ -629,6 +640,39 @@ try {
         await revealWhileUpdating(host, permalink);
       }
       console.log(name, "smart mode covered disguised spoilers and never warned on benign content across all five sites");
+      await d.go(url("x.com") + "?untagged&disguised");
+      await state(false);
+      await panel("document.querySelector('#combined').click()");
+      await d.go(url("x.com") + "?untagged&disguised");
+      await state(true);
+      await d.go(url("x.com") + "?untagged&lead-claim");
+      await state(true);
+      await d.go(url("x.com") + "?untagged&harmless");
+      await state(false);
+      await d.go(url("x.com") + "?harmless");
+      await state(true);
+      const results = new URL("/results", url("www.youtube.com"));
+      results.searchParams.set("search_query", "video clips");
+      await d.go(results.href);
+      const shortState = (id: string, hidden: boolean) => until(() => d.js(`(() => {
+        const card = document.querySelector('#${id}[data-vi-checked]');
+        return !!card && (card.previousElementSibling?.matches('[data-vi-notice]') === true) === ${hidden} &&
+          (card.querySelector('img').getClientRects().length === 0) === ${hidden} &&
+          (card.querySelector('span').getClientRects().length === 0) === ${hidden};
+      })()`), "search Short " + id);
+      await shortState("modern", true);
+      await shortState("classic", true);
+      await shortState("neutral", false);
+      if (await d.js("document.querySelectorAll('[data-vi-notice]').length") !== 2)
+        throw Error("Shorts in a shelf should have one notice per covered card");
+      await d.js("document.querySelector('#modern').previousElementSibling.querySelector('button').click()");
+      await shortState("modern", false);
+      await shortState("classic", true);
+      await d.js("history.pushState({}, '', '/results?search_query=GTA+VI'); window.dispatchEvent(new PopStateEvent('popstate'))");
+      await shortState("neutral", true);
+      await shortState("modern", true);
+      console.log(name, "combined covered game mentions, untagged matches, rumors and individual YouTube search Shorts");
+      await panel("document.querySelector('#smart').click()");
       await d.go(url(cases[0][0]));
       await state(true);
       const missionPost = url(cases[0][0]) + "?mission8";
@@ -640,6 +684,12 @@ try {
       await state(true);
       offline = true;
       await sync();
+      await d.go(url(cases[0][0]));
+      await state(true);
+      await panel("document.querySelector('#combined').click()");
+      await d.go(url("x.com") + "?untagged&disguised");
+      await state(true);
+      await panel("document.querySelector('#smart').click()");
       await d.go(url(cases[0][0]));
       await state(true);
       await d.js("document.querySelector('#story span').textContent='GTA VI: harmless photo'");
