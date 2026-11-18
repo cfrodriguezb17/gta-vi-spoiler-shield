@@ -37,23 +37,39 @@ async function request(base?: Cursor) {
     signal: AbortSignal.timeout(30000),
   });
 }
+
+class SyncError extends Error {
+  constructor(message: string, readonly retryAt = 0) { super(message); }
+}
+
+function requireSuccess(res: Response) {
+  if (res.ok) return;
+  const header = res.headers.get("Retry-After")?.trim();
+  let retryAt = 0;
+  if (header && (res.status === 429 || res.status === 503)) {
+    retryAt = /^\d+$/.test(header) ? Date.now() + Number(header) * 1000 : Date.parse(header);
+    if (!Number.isFinite(retryAt)) retryAt = 0;
+  }
+  throw new SyncError("HTTP " + res.status, retryAt);
+}
+
 async function download() {
   let base = await cursor();
-  if (base?.modelVersion !== modelVersion) base = undefined;
+  if (base?.modelVersion !== modelVersion || base?.origin !== ENDPOINT) base = undefined;
   let res = await request(base);
   if (base && res.status === 410) {
     base = undefined;
     res = await request();
   }
-  if (!res.ok) throw Error("HTTP " + res.status);
+  requireSuccess(res);
   let batch = await res.json();
   if (base && batch.modelVersion !== base.modelVersion) {
     base = undefined;
     res = await request();
-    if (!res.ok) throw Error("HTTP " + res.status);
+    requireSuccess(res);
     batch = await res.json();
   }
-  await apply(batch, base);
+  await apply(batch, ENDPOINT, base);
   invalidate();
   worker?.postMessage({ refresh: true });
   const changed = !base || base.version !== batch.version;
@@ -62,15 +78,34 @@ async function download() {
     ...(changed ? { catalogVersion: { version: batch.version, modelVersion, committedAt: Date.now() } } : {}),
   });
 }
-function sync() {
-  return (running ??= download()
-    .catch(async (error) => {
-      await api.storage.local.set({ syncError: String(error.message) });
-    })
-    .finally(() => {
-      running = undefined;
-    }));
+async function attempt(manual: boolean) {
+  const { catalogRetry: saved } = await api.storage.local.get("catalogRetry");
+  const retry = saved?.origin === ENDPOINT ? saved : undefined;
+  if (retry && Date.now() < (manual ? retry.requiredUntil : retry.when)) {
+    await api.alarms.create("catalog-retry", { when: retry.when });
+    return;
+  }
+  try {
+    await download();
+  } catch (error) {
+    const count = Math.min(7, (retry?.count ?? 0) + 1);
+    const requiredUntil = error instanceof SyncError ? error.retryAt : 0;
+    const delay = Math.min(3600000, 30000 * 2 ** (count - 1));
+    const when = Math.max(Date.now() + delay, requiredUntil) + Math.floor(Math.random() * 30000);
+    await api.storage.local.set({
+      syncError: error instanceof Error ? error.message : "Download failed",
+      catalogRetry: { origin: ENDPOINT, count, requiredUntil, when },
+    });
+    await api.alarms.create("catalog-retry", { when });
+    return;
+  }
+  await api.storage.local.remove("catalogRetry");
+  await api.alarms.clear("catalog-retry");
 }
+function sync(manual = false) {
+  return (running ??= attempt(manual).finally(() => { running = undefined; }));
+}
+
 function start() {
   api.alarms.create("catalog", { periodInMinutes: 60 });
   void sync();
@@ -78,11 +113,11 @@ function start() {
 api.runtime.onInstalled.addListener(start);
 api.runtime.onStartup.addListener(start);
 api.alarms.onAlarm.addListener((alarm: any) => {
-  if (alarm.name === "catalog") void sync();
+  if (alarm.name === "catalog" || alarm.name === "catalog-retry") void sync();
 });
 api.runtime.onMessage.addListener((msg: any, _sender: any, respond: (r: any) => void) => {
   const handle = async () => {
-    if (msg.type === "sync") await sync();
+    if (msg.type === "sync") await sync(true);
     if (msg.type === "status" || msg.type === "sync")
       return { cursor: await cursor(), ...(await api.storage.local.get("syncError")) };
     if (msg.type === "classify") return await detect(msg);

@@ -1,5 +1,6 @@
 import { mkdir, copyFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { version } from "../package.json";
 import { selectors } from "../extension/adapters";
 const endpoint = new URL(process.env.CATALOG_URL ?? "http://127.0.0.1:5071");
 if (
@@ -7,6 +8,9 @@ if (
   !(endpoint.protocol === "http:" && ["localhost", "127.0.0.1"].includes(endpoint.hostname))
 )
   throw Error("El catálogo requiere HTTPS o loopback");
+if (process.env.RELEASE_BUILD === "1" && (endpoint.protocol !== "https:" ||
+  !endpoint.hostname.endsWith(".up.railway.app") || endpoint.href !== endpoint.origin + "/"))
+  throw Error("Release builds require the public HTTPS Railway origin in CATALOG_URL");
 const domains = {
   reddit: ["reddit.com"],
   youtube: ["youtube.com"],
@@ -62,7 +66,7 @@ for (const browser of ["chrome", "firefox"]) {
   const manifest = {
     manifest_version: 3,
     name: "__MSG_extensionName__",
-    version: "1.0.7",
+    version,
     description: "__MSG_extensionDescription__",
     default_locale: "en",
     permissions: ["storage", "alarms"],

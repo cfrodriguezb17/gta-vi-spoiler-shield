@@ -95,10 +95,10 @@ public class Catalog(IVectorStore vectors, IConfiguration config)
     }
     public static async Task<IResult> Read(NpgsqlDataSource pool, long? since, CancellationToken ct)
     {
+        if (since is < 0) return Results.BadRequest();
         await using var db = await pool.OpenConnectionAsync(ct);
         await using var tx = await db.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct);
         long version = await db.Scalar<long>("select coalesce(max(version),0) from changes", ct);
-        if (since is < 0) return Results.BadRequest();
         if (since > version || since < version - 10000) return Results.StatusCode(410);
         JsonNode[] added, updated = []; Guid[] deleted = [];
         if (since == null) added = (await db.Rows("select published::text from events where published is not null order by id", r => JsonNode.Parse(r.GetString(0))!, ct)).ToArray();

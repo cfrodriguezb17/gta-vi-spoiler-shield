@@ -1,5 +1,7 @@
 using Npgsql;
 var builder = WebApplication.CreateBuilder(args);
+if (int.TryParse(Environment.GetEnvironmentVariable("PORT"), out var port))
+    builder.WebHost.UseUrls($"http://[::]:{port}");
 var connection = builder.Configuration.GetConnectionString("Catalog") ?? throw new InvalidOperationException("Set ConnectionStrings__Catalog");
 var database = new NpgsqlConnectionStringBuilder(connection) { Timezone = "UTC" };
 if (builder.Configuration["DatabasePassword"] is { Length: > 0 } password)
@@ -9,11 +11,14 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddHttpClient<IDiscovery, Connectors>(c => { c.DefaultRequestHeaders.UserAgent.ParseAdd(builder.Configuration["SourceUserAgent"] ?? "GtaViShield/1.0"); c.MaxResponseContentBufferSize = 8_388_608; });
 builder.Services.AddHttpClient<IExtractor, Gemini>();
 builder.Services.AddHttpClient<IVectorStore, VectorStore>();
-builder.Services.AddSingleton<Catalog>(); builder.Services.AddHostedService<Campaign>();
+builder.Services.AddSingleton<Catalog>();
+if (builder.Configuration.GetValue("CampaignEnabled", true)) builder.Services.AddHostedService<Campaign>();
+PublicApi.Configure(builder.Services, builder.Configuration);
 var app = builder.Build();
 var pool = app.Services.GetRequiredService<NpgsqlDataSource>();
-await using (var db = await pool.OpenConnectionAsync())
+if (args.Contains("migrate"))
 {
+    await using var db = await pool.OpenConnectionAsync();
     await using var tx = await db.BeginTransactionAsync();
     await db.Exec("select pg_advisory_xact_lock(64301002)", default);
     bool exact = builder.Configuration.GetValue<bool>("ExactVectors");
@@ -24,6 +29,12 @@ await using (var db = await pool.OpenConnectionAsync())
     if (await db.Scalar<string>("select model from catalog_model where id=1", default) != Rules.Model)
         throw new InvalidOperationException("This database uses a different encoder. Build the new catalog in a separate database.");
     await tx.CommitAsync();
+    Console.WriteLine("Catalog schema ready.");
+    return;
+}
+if (args.Any(arg => arg is "start-campaign" or "status" or "import-official-world"))
+{
+    await using var db = await pool.OpenConnectionAsync();
     if (args.Contains("start-campaign"))
     {
         await Campaign.Start(db, DateTimeOffset.UtcNow, default);
@@ -46,8 +57,8 @@ await using (var db = await pool.OpenConnectionAsync())
         Console.WriteLine($"Official reference loaded with {reference.Story.Length} plot events.");
         return;
     }
+    throw new ArgumentException("Unknown operator command");
 }
 var world = await OfficialWorld.Load(default);
-app.MapGet("/api/world", world.Reference);
-app.MapGet("/api/spoilers", (long? since, CancellationToken ct) => Catalog.Read(pool, since, ct));
+PublicApi.Map(app, world, pool);
 await app.RunAsync();

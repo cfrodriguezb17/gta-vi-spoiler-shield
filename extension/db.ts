@@ -6,7 +6,7 @@ export type Batch = {
   updated: StoryEvent[];
   deleted: string[];
 };
-export type Cursor = { version: number; modelVersion: string; lastSync: string };
+export type Cursor = { version: number; modelVersion: string; origin?: string; lastSync: string };
 let opening: Promise<IDBDatabase> | undefined;
 function open() {
   return (opening ??= new Promise<IDBDatabase>((resolve, reject) => {
@@ -40,7 +40,7 @@ export async function events() {
   if (meta && meta.modelVersion !== modelVersion) throw Error("Catálogo local incompatible");
   return rows;
 }
-export async function apply(batch: Batch, base?: Cursor) {
+export async function apply(batch: Batch, origin: string, base?: Cursor) {
   if (
     !batch ||
     batch.modelVersion !== modelVersion ||
@@ -65,14 +65,14 @@ export async function apply(batch: Batch, base?: Cursor) {
     store = tx.objectStore("events"),
     req = meta.get("cursor");
   req.onsuccess = () => {
-    if (base && (req.result?.version !== base.version || req.result?.modelVersion !== base.modelVersion)) {
+    if (base && (req.result?.origin !== origin || req.result?.version !== base.version || req.result?.modelVersion !== base.modelVersion)) {
       tx.abort();
       return;
     }
     if (!base) store.clear();
     for (const id of batch.deleted) store.delete(id);
     for (const e of [...batch.added, ...batch.updated]) store.put(e);
-    meta.put({ version: batch.version, modelVersion, lastSync: new Date().toISOString() }, "cursor");
+    meta.put({ origin, version: batch.version, modelVersion, lastSync: new Date().toISOString() }, "cursor");
   };
   await done;
 }

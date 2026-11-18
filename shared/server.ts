@@ -2,7 +2,7 @@ import { embed, kernel, modelVersion } from "./model";
 const wasm = await kernel(await Bun.file(new URL("./vector.wasm", import.meta.url)).arrayBuffer());
 Bun.serve({
   hostname: process.env.EMBED_HOST ?? "127.0.0.1",
-  port: Number(process.env.EMBED_PORT ?? 5072),
+  port: Number(process.env.EMBED_PORT ?? process.env.PORT ?? 5072),
   maxRequestBodySize: 65536,
   async fetch(request) {
     if (request.method !== "POST" || new URL(request.url).pathname !== "/embed")

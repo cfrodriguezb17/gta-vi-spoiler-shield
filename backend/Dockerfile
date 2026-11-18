@@ -1,12 +1,13 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-WORKDIR /src
-COPY Shield.csproj .
+WORKDIR /src/backend
+COPY backend/Shield.csproj .
 RUN dotnet restore
-COPY . .
-COPY --from=world official-world.json /shared/official-world.json
+COPY backend/*.cs backend/appsettings.json backend/schema.sql ./
+COPY shared/official-world.json /src/shared/official-world.json
 RUN dotnet publish -c Release --no-restore -o /app
 FROM mcr.microsoft.com/dotnet/aspnet:10.0
 WORKDIR /app
 COPY --from=build /app .
+COPY backend/revision.txt .
 USER app
 ENTRYPOINT ["dotnet","Shield.dll"]

@@ -1,0 +1,14 @@
+**
+!backend/
+!backend/*.cs
+!backend/*.csproj
+!backend/appsettings.json
+!backend/schema.sql
+!backend/revision.txt
+!shared/model.ts
+!shared/server.ts
+!shared/vector.wasm
+!shared/
+!shared/official-world.json
+**/bin
+**/obj

@@ -1,0 +1,77 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      db:
+        image: pgvector/pgvector:pg18-trixie
+        env:
+          POSTGRES_PASSWORD: fixture
+          POSTGRES_DB: shield
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE: Host=127.0.0.1;Database=shield;Username=postgres;Password=fixture
+      TEST_PGVECTOR: '1'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        with:
+          global-json-file: global.json
+      - name: Scan Git history
+        run: |
+          curl --fail --silent --show-error -L https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz -o "$RUNNER_TEMP/gitleaks.tgz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tgz" | sha256sum -c
+          tar -xzf "$RUNNER_TEMP/gitleaks.tgz" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --log-opts=--all
+      - name: Typecheck, test and package
+        run: |
+          bun install --frozen-lockfile
+          bun audit
+          bun x tsc
+          bun run test
+          bun run build
+          bun scripts/check-packages.ts
+      - name: Test campaign and public API
+        env:
+          ConnectionStrings__Catalog: ${{ env.TEST_DATABASE }}
+          CampaignEnabled: 'false'
+          PORT: '15080'
+          EMBED_PORT: '5072'
+          CATALOG_URL: http://127.0.0.1:15080
+        run: |
+          dotnet build tests/server/Acceptance.csproj -warnaserror:NU1901,NU1902,NU1903,NU1904
+          bun run encoder > "$RUNNER_TEMP/encoder.log" 2>&1 &
+          dotnet run --no-build --project tests/server
+          dotnet backend/bin/Debug/net10.0/Shield.dll migrate
+          dotnet backend/bin/Debug/net10.0/Shield.dll > "$RUNNER_TEMP/api.log" 2>&1 &
+          curl --fail --retry 12 --retry-connrefused --retry-delay 1 "$CATALOG_URL/health/ready"
+          bun ops/smoke.ts
+          bun tests/quotas.ts
+      - name: Test container builds
+        run: docker compose build api encoder
+        env:
+          CATALOG_PASSWORD: fixture
+      - name: Install browsers and exercise the packaged extensions
+        env:
+          CHROME_CDP_INSTALL: '1'
+        run: |
+          bun x playwright install --with-deps chromium
+          curl -fsSL https://archive.mozilla.org/pub/firefox/releases/160.0.1/linux-x86_64/en-US/firefox-160.0.1.tar.xz -o "$RUNNER_TEMP/firefox.tar.xz"
+          tar -xJf "$RUNNER_TEMP/firefox.tar.xz" -C "$RUNNER_TEMP"
+          FIREFOX="$RUNNER_TEMP/firefox/firefox" bun tests/browser.ts

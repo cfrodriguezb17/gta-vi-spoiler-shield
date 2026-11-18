@@ -6,4 +6,9 @@ tests/server/obj/
 .env
 node_modules/
 /dist/
+*.dump
+.env.*
+!.env.example
+.railway/
+/web-ext-artifacts/
 

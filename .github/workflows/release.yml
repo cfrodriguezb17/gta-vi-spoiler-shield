@@ -1,0 +1,59 @@
+name: Distribute extension
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Prepare a signed draft or publish the manually verified draft
+        type: choice
+        options: [draft, publish]
+        required: true
+permissions:
+  contents: read
+concurrency: extension-release
+jobs:
+  distribute:
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-24.04
+    timeout-minutes: 80
+    permissions:
+      contents: write
+    env:
+      CATALOG_URL: ${{ vars.CATALOG_URL }}
+      RELEASE_BUILD: '1'
+      EXPECT_REVISION: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with: {persist-credentials: false}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
+        with: {bun-version: 1.4.2}
+      - name: Verify production and select version
+        run: |
+          bun ops/smoke.ts
+          echo "TAG=v$(jq -r .version package.json)" >> "$GITHUB_ENV"
+      - name: Build and sign
+        if: inputs.stage == 'draft'
+        env:
+          WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
+          WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+        run: |
+          : "${WEB_EXT_API_KEY:?Missing Mozilla issuer}" "${WEB_EXT_API_SECRET:?Missing Mozilla secret}"
+          bun install --frozen-lockfile
+          bun run build
+          bun scripts/check-packages.ts
+          bunx --package web-ext@10.8.0 web-ext lint --source-dir dist/firefox
+          git archive --format=zip -o "$RUNNER_TEMP/source.zip" HEAD
+          bunx --package web-ext@10.8.0 web-ext sign --source-dir dist/firefox --channel unlisted --upload-source-code "$RUNNER_TEMP/source.zip" --artifacts-dir signed --approval-timeout 3600000
+          cp signed/*.xpi dist/firefox.xpi
+          cd dist
+          sha256sum chrome.zip firefox.xpi > SHA256SUMS
+          gh release create "$TAG" chrome.zip firefox.xpi SHA256SUMS --draft --target "$GITHUB_SHA" --title "$TAG" --notes-file ../CHANGELOG.md
+      - name: Publish the verified draft
+        if: inputs.stage == 'publish'
+        run: |
+          gh release view "$TAG" --json isDraft,targetCommitish | jq -e --arg sha "$GITHUB_SHA" '.isDraft and (.targetCommitish == $sha)'
+          mkdir verified
+          gh release download "$TAG" --dir verified
+          (cd verified && sha256sum -c SHA256SUMS && test -s chrome.zip && test -s firefox.xpi)
+          gh release edit "$TAG" --draft=false

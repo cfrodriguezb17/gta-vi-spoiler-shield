@@ -111,7 +111,7 @@ const event = {
 };
 let version = 1,
   offline = false,
-  fault: "invalid" | "expired" | "model" | null = null;
+  fault: "throttled" | "invalid" | "expired" | "model" | null = null;
 const requests: { url: string; method: string; cookie: string | null; referer: string | null }[] = [];
 const catalog = Bun.serve({
   hostname: catalogUrl.hostname,
@@ -123,6 +123,7 @@ const catalog = Bun.serve({
       cookie: req.headers.get("cookie"),
       referer: req.headers.get("referer"),
     });
+    if (fault === "throttled") return new Response(null, { status: 429, headers: { "Retry-After": "60" } });
     if (offline) return new Response(null, { status: 503 });
     const u = new URL(req.url);
     if (u.pathname !== "/api/spoilers") return new Response(null, { status: 404 });
@@ -378,7 +379,7 @@ try {
     const d = await (name === "firefox" ? firefox() : chrome());
     try {
       const url = (host: string) => "https://" + host + ":" + fixtures.port + "/fixture";
-      const state = (hidden: boolean) =>
+      const state = (hidden: boolean, call = new Error().stack) =>
         until(
           () =>
             d.js(
@@ -392,7 +393,7 @@ try {
           const details = await d.js(
             "JSON.stringify({url:location.href, card:document.querySelector('#story')?.outerHTML, notices:window.fixtureNoticeCount})",
           );
-          throw Error(e.message + " " + details);
+          throw Error(e.message + " " + details + "\n" + call);
         });
       const panelReady = (tab: { js: Driver["js"] }) => until(
         () => tab.js("!document.querySelector('main').hidden && !document.querySelector('#sync').disabled"),
@@ -592,6 +593,23 @@ try {
         "(globalThis.browser??chrome).runtime.sendMessage({type:'status'}).then(JSON.stringify)",
       );
       if (!JSON.parse(initialStatus)?.cursor) throw Error("Initial sync " + initialStatus);
+      // Upgrade a catalog saved by a local build with the same version number.
+      await d.js(`new Promise((resolve, reject) => {
+        const request = indexedDB.open("vi-catalog");
+        request.onsuccess = () => {
+          const db = request.result;
+          const tx = db.transaction("meta", "readwrite");
+          const store = tx.objectStore("meta");
+          const read = store.get("cursor");
+          read.onsuccess = () => store.put({ ...read.result, origin: "http://localhost:9" }, "cursor");
+          tx.oncomplete = () => { db.close(); resolve(true); };
+          tx.onerror = () => reject(tx.error);
+        };
+      })`);
+      const beforeSwitch = requests.length;
+      await sync();
+      if (requests.length !== beforeSwitch + 1 || !requests.at(-1)!.url.endsWith("/api/spoilers"))
+        throw Error("Changed origin did not trigger a full catalog download");
       const detection = await d.js(
         "(globalThis.browser??chrome).runtime.sendMessage({type:'classify',text:'Rhea traiciona a Milo',context:'GTA VI'}).then(r=>r.hide)",
       );
@@ -650,6 +668,12 @@ try {
       await d.js(chooseLanguage("en"));
       if (!(await d.js(`document.querySelector('output').textContent.includes("Couldn't update the catalog.")`)))
         throw Error("untranslated synchronization error");
+      fault = "throttled";
+      await sync();
+      const beforeRetry = requests.length;
+      await sync();
+      if (requests.length !== beforeRetry) throw Error("Manual sync ignored Retry-After");
+      fault = null;
       await d.js(chooseLanguage("es"));
       await d.go(url(cases[0][0]));
       await state(false);

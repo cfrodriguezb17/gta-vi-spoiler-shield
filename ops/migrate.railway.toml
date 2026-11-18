@@ -1,0 +1,8 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+preDeployCommand = ["dotnet Shield.dll migrate"]
+startCommand = "/bin/true"
+restartPolicyType = "NEVER"

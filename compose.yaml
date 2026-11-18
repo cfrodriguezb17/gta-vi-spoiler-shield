@@ -14,17 +14,29 @@ services:
       timeout: 5s
       retries: 20
   encoder:
-    build: ./shared
-    restart: unless-stopped
-  api:
     build:
-      context: ./backend
-      additional_contexts:
-        world: ./shared
+      context: .
+      dockerfile: shared/Dockerfile
+    restart: unless-stopped
+  migrate:
+    build: &api_build
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["migrate"]
+    environment:
+      ConnectionStrings__Catalog: Host=db;Database=shield;Username=shield
+      DatabasePassword: ${CATALOG_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+  api:
+    build: *api_build
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       encoder:
         condition: service_started
     environment:
