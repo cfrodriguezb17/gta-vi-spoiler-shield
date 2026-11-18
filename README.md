@@ -16,7 +16,7 @@ Browse Reddit, YouTube, X, Facebook and Instagram with GTA VI spoilers covered. 
 
 ## Install
 
-The first public build is being prepared. For a local installation, build from source using the [development guide](docs/development.md). The distribution channel is [GitHub Releases](https://github.com/cfrodriguezb17/gta-vi-spoiler-shield/releases).
+Download `chrome.zip` or the signed `firefox.xpi` from the [latest GitHub release](https://github.com/cfrodriguezb17/gta-vi-spoiler-shield/releases/latest). To build from source, follow the [development guide](docs/development.md).
 
 - **Chrome desktop** — Extract the release’s `chrome.zip` into a permanent folder. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked** and select that folder. For updates, replace the files in the same folder and click **Reload**.
 - **Firefox desktop** — Open the signed `.xpi` from the release in Firefox and confirm installation. Install newer signed XPIs over the existing add-on. Firefox 140 or later is required.

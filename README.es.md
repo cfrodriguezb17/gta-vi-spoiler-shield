@@ -16,7 +16,7 @@ Oculta posibles spoilers de GTA VI en Reddit, YouTube, X, Facebook e Instagram. 
 
 ## Instalación
 
-La primera versión pública está en preparación. Puedes compilar una copia local con la [guía de desarrollo](docs/development.es.md). Los paquetes públicos se distribuirán en [GitHub Releases](https://github.com/cfrodriguezb17/gta-vi-spoiler-shield/releases).
+Descarga `chrome.zip` o el archivo firmado `firefox.xpi` desde la [última versión de GitHub](https://github.com/cfrodriguezb17/gta-vi-spoiler-shield/releases/latest). Para compilar desde el código fuente, sigue la [guía de desarrollo](docs/development.es.md).
 
 - **Chrome de escritorio** — Extrae `chrome.zip` en una carpeta permanente. En `chrome://extensions` activa el modo de desarrollador, pulsa **Cargar descomprimida** y selecciona la carpeta. Para actualizar, reemplaza los archivos en esa misma ruta y pulsa **Recargar**.
 - **Firefox de escritorio** — Abre el archivo `.xpi` firmado desde Firefox y confirma la instalación. Para actualizar, instala el nuevo XPI sobre el anterior. Requiere Firefox 140 o posterior.
