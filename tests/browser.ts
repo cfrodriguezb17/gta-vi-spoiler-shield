@@ -162,7 +162,9 @@ async function chrome(): Promise<Driver> {
   const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ?? "playwright");
   const dir = join(root, "chrome-extension");
   await (await import("node:fs/promises")).mkdir(dir);
-  if ((await Bun.spawn(["tar", "-xf", join(builds, "chrome.zip"), "-C", dir]).exited) !== 0)
+  const archive = join(builds, "chrome.zip");
+  const extract = process.platform === "win32" ? ["tar", "-xf", archive, "-C", dir] : ["unzip", "-q", archive, "-d", dir];
+  if ((await Bun.spawn(extract).exited) !== 0)
     throw Error("Cannot extract Chrome ZIP");
   const flags = process.env.CHROME_CDP_INSTALL
     ? ["--enable-unsafe-extension-debugging"]
@@ -680,6 +682,9 @@ try {
       await panel(
         "document.querySelector('[value=preventive]').click();document.querySelector('input[name=reddit]').click()",
       );
+      await until(() => d.js(
+        "(globalThis.browser??chrome).storage.local.get('settings').then(({settings}) => settings.mode === 'preventive' && settings.disabled.includes('reddit'))",
+      ), "persisted network toggle");
       await d.go(url(cases[0][0]));
       await state(false);
       await d.go(url(cases[1][0]));
