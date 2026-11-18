@@ -15,6 +15,14 @@ const domains = {
   instagram: ["instagram.com"],
 };
 const output = resolve(process.env.EXTENSION_OUT_DIR ?? "dist");
+const locales = ["en", "es"];
+const icons = Object.fromEntries([16, 32, 48, 128].map((size) => [size, `art/shield-${size}.png`]));
+const artwork = [
+  ...Object.values(icons),
+  "art/bay-at-dusk.webp",
+  "art/barlow-condensed-bold-italic.woff2",
+  "art/barlow-OFL.txt",
+];
 for (const browser of ["chrome", "firefox"]) {
   const dir = resolve(output, browser);
   await mkdir(dir, { recursive: true });
@@ -26,10 +34,16 @@ for (const browser of ["chrome", "firefox"]) {
     define: { ENDPOINT: JSON.stringify(endpoint.origin) },
   });
   if (!result.success) throw new Error(result.logs.join("\n"));
+  await mkdir(resolve(dir, "art"), { recursive: true });
   await Promise.all(
-    ["popup.html", "popup.css", "notice.css"].map((n) => copyFile("extension/" + n, dir + "/" + n)),
+    ["popup.html", "popup.css", "notice.css", ...artwork].map((n) => copyFile("extension/" + n, dir + "/" + n)),
   );
   await copyFile("shared/vector.wasm", dir + "/vector.wasm");
+  for (const locale of locales) {
+    const path = "_locales/" + locale;
+    await mkdir(dir + "/" + path, { recursive: true });
+    await copyFile("extension/" + path + "/messages.json", dir + "/" + path + "/messages.json");
+  }
   const content_scripts = [];
   for (const [key, hosts] of Object.entries(domains)) {
     const css = key + ".css";
@@ -47,14 +61,16 @@ for (const browser of ["chrome", "firefox"]) {
   }
   const manifest = {
     manifest_version: 3,
-    name: "Protección de spoilers de GTA VI",
-    version: "1.0.4",
-    description: "Protección local de publicaciones y comentarios en cinco redes.",
+    name: "__MSG_extensionName__",
+    version: "1.0.7",
+    description: "__MSG_extensionDescription__",
+    default_locale: "en",
     permissions: ["storage", "alarms"],
     host_permissions: [
       (browser === "firefox" ? endpoint.protocol + "//" + endpoint.hostname : endpoint.origin) + "/*",
     ],
-    action: { default_popup: "popup.html" },
+    icons,
+    action: { default_popup: "popup.html", default_icon: icons },
     content_scripts,
     background: browser === "chrome" ? { service_worker: "background.js" } : { scripts: ["background.js"] },
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },
@@ -82,6 +98,8 @@ for (const browser of ["chrome", "firefox"]) {
     "popup.css",
     "notice.css",
     "vector.wasm",
+    ...artwork,
+    ...locales.map((locale) => "_locales/" + locale + "/messages.json"),
     ...Object.keys(domains).map((site) => site + ".css"),
   ];
   const proc =

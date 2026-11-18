@@ -241,13 +241,7 @@ function matches(clause: string, e: StoryEvent) {
     }),
   );
 }
-export function shouldHide(
-  text: string,
-  context: string,
-  events: StoryEvent[],
-  progress: number | null,
-  wasm: Kernel,
-) {
+export function shouldHide(text: string, context: string, events: StoryEvent[], wasm: Kernel) {
   const readable = readableText(text),
     thread = readableText(context);
   if (!gameContext(readable) && (fifthGame.test(readable) || !gameContext(thread))) return false;
@@ -260,7 +254,6 @@ export function shouldHide(
   for (const clause of clauses) {
     const v = embed(clause, wasm);
     const ranked = events
-      .filter((e) => progress === null || e.mission === null || e.mission > progress)
       .map((e) => ({ e, score: e.vector.reduce((sum, x, i) => sum + x * v[i], 0) }))
       .sort((a, b) => b.score - a.score);
     if (ranked.some(({ e, score }) => score > 0.04 && matches(clause, e))) return true;

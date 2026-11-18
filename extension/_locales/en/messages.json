@@ -1,0 +1,19 @@
+{
+  "extensionName": { "message": "GTA VI Spoiler Protection" },
+  "extensionDescription": { "message": "Hide spoilers in posts and comments on five social networks. Detection runs on your device." },
+  "panelTitle": { "message": "Spoiler protection" },
+  "languageLabel": { "message": "Language" },
+  "automaticLanguage": { "message": "Automatic (browser)" },
+  "protectionMode": { "message": "Protection mode" },
+  "preventive": { "message": "Preventive" },
+  "preventiveHelp": { "message": "Cover posts related to GTA VI." },
+  "smart": { "message": "Smart" },
+  "smartHelp": { "message": "Cover posts that match known story events." },
+  "protectedNetworks": { "message": "Protected networks" },
+  "sync": { "message": "Sync" },
+  "lastSync": { "message": "Last sync" },
+  "noCatalog": { "message": "No catalog has been synced yet." },
+  "syncError": { "message": "Couldn't update the catalog." },
+  "spoilerNotice": { "message": "Possible GTA VI spoiler" },
+  "showPost": { "message": "Show" }
+}

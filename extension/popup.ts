@@ -1,12 +1,38 @@
 import { api, settings, sites } from "./api";
+import { resolveLocale, translate, type Language, type Message } from "./i18n";
 const field = document.querySelector("#networks")!,
-  progress = document.querySelector<HTMLInputElement>("#progress")!,
+  language = document.querySelector<HTMLSelectElement>("#language")!,
   form = document.querySelector("form")!,
   out = document.querySelector("output")!,
   sync = document.querySelector<HTMLButtonElement>("#sync")!;
 const names = { reddit: "Reddit", youtube: "YouTube", x: "X", facebook: "Facebook", instagram: "Instagram" };
+let current = settings();
+let syncStatus: { lastSync?: number; failed: boolean } | undefined;
+
+function renderStatus() {
+  if (!syncStatus) return;
+  const locale = resolveLocale(current.language);
+  const date = syncStatus.lastSync;
+  const summary = date
+    ? translate(locale, "lastSync") + " · " + new Date(date).toLocaleString(locale)
+    : translate(locale, "noCatalog");
+  out.textContent = summary + (syncStatus.failed ? " " + translate(locale, "syncError") : "");
+}
+
+function renderLanguage() {
+  const locale = resolveLocale(current.language);
+  document.documentElement.lang = locale;
+  document.title = translate(locale, "extensionName");
+  for (const element of document.querySelectorAll<HTMLElement>("[data-message]"))
+    element.textContent = translate(locale, element.dataset.message as Message);
+  renderStatus();
+}
+
 async function init() {
-  const current = settings((await api.storage.local.get("settings")).settings);
+  current = settings(await api.storage.local.get("settings").then(
+    (stored: any) => stored.settings,
+    () => undefined,
+  ));
   for (const site of sites) {
     const label = document.createElement("label"),
       input = document.createElement("input");
@@ -17,30 +43,31 @@ async function init() {
     field.append(label);
   }
   (form.elements.namedItem("mode") as RadioNodeList).value = current.mode;
-  progress.value = current.progress?.toString() ?? "";
+  language.value = current.language;
   form.onchange = () => {
-    if (!form.reportValidity()) return;
     const data = new FormData(form);
-    void api.storage.local.set({
-      settings: {
-        mode: data.get("mode"),
-        disabled: sites.filter((s) => !data.has(s)),
-        progress: progress.value === "" ? null : progress.valueAsNumber,
-      },
+    const previousLanguage = current.language;
+    current = settings({
+      mode: data.get("mode") === "smart" ? "smart" : "preventive",
+      disabled: sites.filter((s) => !data.has(s)),
+      language: language.value as Language,
     });
+    if (previousLanguage !== current.language) renderLanguage();
+    void api.storage.local.set({ settings: current });
   };
+  renderLanguage();
+  document.querySelector("main")!.hidden = false;
   await status("status");
 }
 async function status(type: string) {
   sync.disabled = true;
   try {
     const info = await api.runtime.sendMessage({ type });
-    const last = info?.cursor?.lastSync;
-    out.textContent =
-      (last
-        ? "Última sincronización · " + new Date(last).toLocaleString("es")
-        : "Aún no hay un catálogo sincronizado.") + (info?.syncError ? " No se pudo actualizar." : "");
+    syncStatus = { lastSync: info?.cursor?.lastSync, failed: Boolean(info?.syncError || info?.error) };
+  } catch {
+    syncStatus = { lastSync: syncStatus?.lastSync, failed: true };
   } finally {
+    renderStatus();
     sync.disabled = false;
   }
 }

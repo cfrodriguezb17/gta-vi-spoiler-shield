@@ -1,6 +1,7 @@
 import { api, settings, type Settings } from "./api";
 import { siteFor, selectors, cardText, thread, identity } from "./adapters";
 import { gta } from "../shared/model";
+import { resolveLocale, translate } from "./i18n";
 const site = siteFor(location.hostname);
 if (site) protect(site);
 type CardState = {
@@ -15,9 +16,15 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     states = new WeakMap<Element, CardState>(),
     noticeOwners = new WeakMap<Node, Element>();
   let config: Settings | undefined,
+    locale = resolveLocale("auto"),
     epoch = 0,
     href = location.href;
   const dirty = new Set<Element>();
+  function translateNotice(notice: HTMLElement) {
+    notice.lang = locale;
+    notice.firstElementChild!.textContent = translate(locale, "spoilerNotice");
+    notice.lastElementChild!.textContent = translate(locale, "showPost");
+  }
   function removeNotice(card: Element, state = states.get(card)) {
     state?.notice?.remove();
     if (state) delete state.notice;
@@ -52,8 +59,6 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     notice.setAttribute("data-vi-notice", "");
     const label = document.createElement("span");
     const button = document.createElement("button");
-    label.textContent = "Posible spoiler de GTA VI";
-    button.textContent = "Mostrar";
     button.type = "button";
     function reveal() {
       const state = states.get(card);
@@ -78,6 +83,7 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
       }
     });
     notice.append(label, button);
+    translateNotice(notice);
     state.notice = notice;
     noticeOwners.set(notice, card);
     card.before(notice);
@@ -123,7 +129,7 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
       if (hide) cover(card, state);
       else allow(card, state);
     }
-    api.runtime.sendMessage({ type: "classify", text, context, progress: config.progress }).then(
+    api.runtime.sendMessage({ type: "classify", text, context }).then(
       (reply: any) => finish(reply?.hide !== false),
       () => finish(true),
     );
@@ -177,6 +183,7 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
       )
         continue;
       const el = m.target instanceof Element ? m.target : m.target.parentElement;
+      if (el?.closest("[data-vi-notice]")) continue;
       const card = el?.closest(selector);
       if (card) {
         dirty.add(card);
@@ -223,17 +230,30 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
   window.addEventListener("popstate", all);
   const nav = (window as any).navigation;
   nav?.addEventListener("currententrychange", all);
+  function applySettings(next: Settings) {
+    const previous = config;
+    config = next;
+    const nextLocale = resolveLocale(next.language);
+    if (locale !== nextLocale) {
+      locale = nextLocale;
+      document.querySelectorAll<HTMLElement>("[data-vi-notice]").forEach((notice) => {
+        if (noticeOwners.has(notice)) translateNotice(notice);
+      });
+    }
+    return !previous || previous.mode !== next.mode ||
+      previous.disabled.includes(site) !== next.disabled.includes(site);
+  }
   api.storage.onChanged.addListener((changes: any, area: string) => {
     if (area !== "local") return;
-    if (changes.settings) config = settings(changes.settings.newValue);
-    if (changes.settings || changes.catalogVersion) {
+    const protectionChanged = changes.settings && applySettings(settings(changes.settings.newValue));
+    if (protectionChanged || changes.catalogVersion) {
       epoch++;
       all();
     }
   });
   function initialize(value?: Partial<Settings>) {
     if (config) return;
-    config = settings(value);
+    applySettings(settings(value));
     all();
   }
   api.storage.local.get("settings").then(

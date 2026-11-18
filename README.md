@@ -1,6 +1,8 @@
 # Protección de spoilers de GTA VI
 
-Extensión Manifest V3 para Reddit, YouTube, X, Facebook e Instagram. El modo **Preventivo** funciona desde la instalación, incluso con el servidor apagado. Cubre la tarjeta completa, pausa su reproducción y permite revelarla con **Mostrar**. En el panel puedes desactivar cada red, pasar al modo **Inteligente** e indicar el número de la última misión completada.
+Extensión Manifest V3 para Reddit, YouTube, X, Facebook e Instagram. El modo **Preventivo** funciona desde la instalación, incluso con el servidor apagado. Cubre la tarjeta completa, pausa su reproducción y permite revelarla con **Mostrar**. En el panel puedes cambiar al modo **Inteligente** y elegir qué redes proteger.
+
+En **Idioma** puedes elegir **Español**, **English** o **Automático (navegador)**. La elección se aplica al panel y a los avisos. El filtro sigue comparando publicaciones en ambos idiomas.
 
 ## Instalar
 
@@ -60,9 +62,9 @@ Ambas respuestas incluyen `version` y `modelVersion`. IndexedDB guarda la versi�
 
 ## Detección local
 
-Esta entrega usa `vi-lex-es-en-384-v1`, un codificador léxico de 384 dimensiones con vocabulario narrativo bilingüe y normalización L2 en WebAssembly. El navegador y el servicio de embeddings ejecutan los mismos archivos de `shared/`. En Chrome la inferencia se ejecuta en el service worker y en Firefox en un Web Worker. La coincidencia contrasta participantes, dirección de la acción y negaciones con los eventos publicados. Los eventos de misión desconocida siguen protegidos aunque se indique progreso.
+Esta entrega usa `vi-lex-es-en-384-v1`, un codificador léxico de 384 dimensiones con vocabulario narrativo bilingüe y normalización L2 en WebAssembly. El navegador y el servicio de embeddings ejecutan los mismos archivos de `shared/`. En Chrome la inferencia se ejecuta en el service worker y en Firefox en un Web Worker. La coincidencia contrasta participantes, dirección de la acción, negaciones y misiones mencionadas con los eventos publicados.
 
-El modelo E5 planteado inicialmente requería pesos que este entorno no pudo descargar. El codificador incluido reconoce las formas del vocabulario, los alias y las expresiones extraídas de las fuentes. Las paráfrasis nuevas, la ironía y las atribuciones ambiguas pueden escapar al filtro. El modo preventivo ofrece cobertura cuando el catálogo es pequeño. Imágenes y vídeos se clasifican por el texto y los atributos accesibles de su tarjeta. El texto leído, las preferencias y el progreso permanecen en el dispositivo.
+El modelo E5 planteado inicialmente requería pesos que este entorno no pudo descargar. El codificador incluido reconoce las formas del vocabulario, los alias y las expresiones extraídas de las fuentes. Las paráfrasis nuevas, la ironía y las atribuciones ambiguas pueden escapar al filtro. El modo preventivo ofrece cobertura cuando el catálogo es pequeño. Imágenes y vídeos se clasifican por el texto y los atributos accesibles de su tarjeta. El texto leído y las preferencias permanecen en el dispositivo.
 
 ## Verificación
 
@@ -87,7 +89,7 @@ Si el backend ya está funcionando, selecciona un puerto local libre con `CATALO
 | Frases ficticias reservadas en inglés | 12 de 12 spoilers graves detectados y 0 de 20 textos inocuos ocultos. |
 | Frases ficticias reservadas en español | 12 de 12 spoilers graves detectados y 0 de 20 textos inocuos ocultos. |
 | Campaña con interrupción | 120 revisiones programadas, 117 completadas, 3 omitidas y ningún acceso a fuentes después del cierre. |
-| Chrome 157 y Firefox 160 | Cinco adaptadores por navegador. Se verificaron el árbol o los nombres accesibles, teclado, pausa de vídeo, navegación sin recarga, reciclaje de tarjetas, progreso y funcionamiento sin conexión. |
+| Chrome 157 y Firefox 160 | Cinco adaptadores por navegador. Se verificaron el árbol o los nombres accesibles, teclado, pausa de vídeo, navegación sin recarga, reciclaje de tarjetas y funcionamiento sin conexión. |
 | Tráfico del catálogo | 20 peticiones GET durante la prueba de los dos navegadores. El único parámetro observado fue el cursor. Todas las peticiones llegaron sin cookies ni referencia de navegación. |
 | Búsqueda HNSW | Una prueba independiente creó el índice en PostgreSQL con pgvector bajo PGlite, comprobó el plan de ejecución y recuperó el evento en inglés con una consulta en español. |
 | Evidencias y distribución | Se comprobaron duplicados, traducciones, inversión de participantes, negaciones, cuotas, rectificación y retiradas incrementales. |

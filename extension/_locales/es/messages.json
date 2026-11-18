@@ -1,0 +1,19 @@
+{
+  "extensionName": { "message": "Protección de spoilers de GTA VI" },
+  "extensionDescription": { "message": "Oculta spoilers en publicaciones y comentarios de cinco redes. La detección se hace en tu dispositivo." },
+  "panelTitle": { "message": "Protección de spoilers" },
+  "languageLabel": { "message": "Idioma" },
+  "automaticLanguage": { "message": "Automático (navegador)" },
+  "protectionMode": { "message": "Modo de protección" },
+  "preventive": { "message": "Preventivo" },
+  "preventiveHelp": { "message": "Cubre las publicaciones relacionadas con GTA VI." },
+  "smart": { "message": "Inteligente" },
+  "smartHelp": { "message": "Cubre publicaciones que coinciden con eventos conocidos de la historia." },
+  "protectedNetworks": { "message": "Redes protegidas" },
+  "sync": { "message": "Sincronizar" },
+  "lastSync": { "message": "Última sincronización" },
+  "noCatalog": { "message": "Aún no hay un catálogo sincronizado." },
+  "syncError": { "message": "No se pudo actualizar el catálogo." },
+  "spoilerNotice": { "message": "Posible spoiler de GTA VI" },
+  "showPost": { "message": "Mostrar" }
+}

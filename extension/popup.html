@@ -1,31 +1,50 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Protección de GTA VI</title>
+    <title></title>
+    <link rel="icon" href="art/shield-32.png" />
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
-    <main>
-      <header>
-        <span aria-hidden="true" class="mark">VI</span>
-        <h1>Protección de spoilers</h1>
+    <main hidden>
+      <header class="hero">
+        <div class="brand"><img src="art/shield-48.png" alt="" width="26" height="26" /> GTA VI</div>
+        <h1 data-message="panelTitle"></h1>
       </header>
       <form>
-        <fieldset>
-          <legend>Modo de protección</legend>
-          <label><input name="mode" type="radio" value="preventive" checked />Preventivo</label
-          ><small>Cubre las publicaciones relacionadas con GTA VI.</small>
-          <label><input name="mode" type="radio" value="smart" />Inteligente</label
-          ><small>Cubre los eventos conocidos que aún no has superado.</small>
+        <fieldset class="modes">
+          <legend data-message="protectionMode"></legend>
+          <div class="choices">
+            <div class="choice">
+              <input id="preventive" name="mode" type="radio" value="preventive" aria-describedby="preventive-help" checked />
+              <label for="preventive" data-message="preventive"></label>
+              <small id="preventive-help" data-message="preventiveHelp"></small>
+            </div>
+            <div class="choice">
+              <input id="smart" name="mode" type="radio" value="smart" aria-describedby="smart-help" />
+              <label for="smart" data-message="smart"></label>
+              <small id="smart-help" data-message="smartHelp"></small>
+            </div>
+          </div>
         </fieldset>
-        <label for="progress">Última misión completada</label
-        ><input id="progress" type="number" min="0" step="1" placeholder="Sin indicar" />
-        <fieldset id="networks"><legend>Redes protegidas</legend></fieldset>
+        <fieldset>
+          <legend data-message="protectedNetworks"></legend>
+          <div id="networks"></div>
+        </fieldset>
+        <div class="language">
+          <label for="language" data-message="languageLabel"></label>
+          <select id="language" name="language">
+            <option value="auto" data-message="automaticLanguage"></option>
+            <option value="es" lang="es">Español</option>
+            <option value="en" lang="en">English</option>
+          </select>
+        </div>
       </form>
       <footer>
-        <output id="status" aria-live="polite"></output><button id="sync" type="button">Sincronizar</button>
+        <output id="status" aria-live="polite"></output>
+        <button id="sync" type="button" data-message="sync" disabled></button>
       </footer>
     </main>
     <script src="popup.js"></script>

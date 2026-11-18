@@ -79,7 +79,8 @@ const fixtures = Bun.serve({
     const link = url.searchParams.has("permalink")
       ? `<a id="permalink" href="${permalink}101"><time>Posted today</time></a>`
       : "";
-    const content = `<span>${title}: ${story}</span><img alt="private thumbnail"><video></video>${link}`;
+    const mission = url.searchParams.has("mission8") ? " in mission 8" : "";
+    const content = `<span>${title}: ${story}${mission}</span><img alt="private thumbnail"><video></video>${link}`;
     const nested = url.searchParams.has("nested");
     const wrapped = nested ? `<yt-lockup-view-model>${content}</yt-lockup-view-model>` : content;
     return new Response(
@@ -152,6 +153,7 @@ type Driver = {
   js: (code: string) => Promise<any>;
   key: (key: string) => Promise<void>;
   panel: string;
+  openPanelTab: () => Promise<{ js: Driver["js"]; close: Driver["close"] }>;
   close: () => Promise<void>;
   ax?: () => Promise<string>;
 };
@@ -191,13 +193,19 @@ async function chrome(): Promise<Driver> {
       await context.close();
       throw e;
     }));
+  const panel = new URL("popup.html", worker.url()).href;
   return {
     go: async (url) => {
       await page.goto(url);
     },
     js: (code) => page.evaluate(code),
     key: (k) => page.keyboard.press(k),
-    panel: new URL("popup.html", worker.url()).href,
+    panel,
+    openPanelTab: async () => {
+      const tab = await context.newPage();
+      await tab.goto(panel);
+      return { js: (code) => tab.evaluate(code), close: () => tab.close() };
+    },
     ax: async () =>
       (await cdp.send("Accessibility.getFullAXTree")).nodes
         .filter((node: any) => !node.ignored)
@@ -282,6 +290,18 @@ async function firefox(): Promise<Driver> {
     await call("webExtension.install", { extensionData: { type: "path", path: archive } });
     const { contexts } = await call("browsingContext.getTree", {}),
       context = contexts[0].context;
+    const panel = "moz-extension://" + uuid + "/popup.html";
+    async function browserWindow() {
+      const tree = await call("browsingContext.getTree", { "moz:scope": "chrome" });
+      const windowCtx = tree.contexts.find((item: any) => item.url.includes("browser.xhtml"));
+      if (!windowCtx) throw Error("Browser window missing " + JSON.stringify(tree));
+      return windowCtx.context;
+    }
+    async function evaluate(expression: string, target = context) {
+      const result = await call("script.evaluate", { expression, target: { context: target }, awaitPromise: true });
+      if (result.type === "exception") throw Error(result.exceptionDetails.text);
+      return result.result.value;
+    }
     return {
       go: async (url) => {
         if (!url.startsWith("moz-extension:")) {
@@ -289,11 +309,8 @@ async function firefox(): Promise<Driver> {
           return;
         }
         if ((await call("browsingContext.getTree", { root: context })).contexts[0].url === url) return;
-        const chromeTree = await call("browsingContext.getTree", { "moz:scope": "chrome" });
-        const windowCtx = chromeTree.contexts.find((c: any) => c.url.includes("browser.xhtml"));
-        if (!windowCtx) throw Error("Browser window missing " + JSON.stringify(chromeTree));
         const nav = await call("script.evaluate", {
-          target: { context: windowCtx.context },
+          target: { context: await browserWindow() },
           expression: "window.gURLBar.value=" + JSON.stringify(url) + ";window.gURLBar.handleCommand();true",
           awaitPromise: false,
         });
@@ -303,10 +320,14 @@ async function firefox(): Promise<Driver> {
           "Firefox panel",
         );
       },
-      js: async (expression) => {
-        const v = await call("script.evaluate", { expression, target: { context }, awaitPromise: true });
-        if (v.type === "exception") throw Error(v.exceptionDetails.text);
-        return v.result.value;
+      js: evaluate,
+      openPanelTab: async () => {
+        await evaluate("window.gBrowser.addTrustedTab(" + JSON.stringify(panel) + ");true", await browserWindow());
+        const tab = await until(async () => {
+          const tree = await call("browsingContext.getTree", {});
+          return tree.contexts.find((item: any) => item.context !== context && item.url === panel)?.context;
+        }, "Firefox popup tab");
+        return { js: (code) => evaluate(code, tab), close: async () => { await call("browsingContext.close", { context: tab }); } };
       },
       key: async (k) => {
         const value = k === "Tab" ? "\uE004" : "\uE006";
@@ -336,7 +357,7 @@ async function firefox(): Promise<Driver> {
         }
         return found.join(" ");
       },
-      panel: "moz-extension://" + uuid + "/popup.html",
+      panel,
       close: async () => {
         ws!.close();
         proc.kill();
@@ -373,6 +394,106 @@ try {
           );
           throw Error(e.message + " " + details);
         });
+      const panelReady = (tab: { js: Driver["js"] }) => until(
+        () => tab.js("!document.querySelector('main').hidden && !document.querySelector('#sync').disabled"),
+        "localized popup",
+      );
+      const chooseLanguage = (language: "auto" | "es" | "en") => `(() => {
+        const choice = document.querySelector('#language');
+        choice.value = '${language}';
+        choice.dispatchEvent(new Event('change', { bubbles: true }));
+      })()`;
+      async function checkLanguages() {
+        const firstPanel = await d.openPanelTab();
+        let automatic: string;
+        try {
+          await panelReady(firstPanel);
+          automatic = await firstPanel.js(`(() => {
+            const i18n = (globalThis.browser ?? chrome).i18n;
+            const locale = /^es(?:[-_]|$)/i.test(i18n.getUILanguage()) ? 'es' : 'en';
+            const title = locale === 'es' ? 'Protección de spoilers de GTA VI' : 'GTA VI Spoiler Protection';
+            if (document.querySelector('#language').value !== 'auto' || document.documentElement.lang !== locale ||
+                document.title !== title || i18n.getMessage('extensionName') !== title)
+              throw Error('Incorrect automatic language');
+            return locale;
+          })()`);
+          await firstPanel.js(`(async () => {
+            const api = globalThis.browser ?? chrome;
+            await api.runtime.sendMessage({ type: 'sync' });
+            await api.storage.local.set({ settings: { mode: 'smart', progress: 99, disabled: ['x'] } });
+          })()`);
+        } finally {
+          await firstPanel.close();
+        }
+        await d.go(url(cases[0][0]));
+        await state(true);
+        await d.js(`(() => {
+          const original = document.querySelector('#story');
+          const another = original.cloneNode(true);
+          another.id = 'other-story';
+          another.removeAttribute('data-vi-checked');
+          another.removeAttribute('data-vi-covered');
+          document.body.append(another);
+          original.previousElementSibling.querySelector('button').click();
+        })()`);
+        await until(
+          () => d.js(`(() => {
+            const notice = document.querySelector('#other-story').previousElementSibling;
+            if (!notice?.matches('[data-vi-notice]')) return false;
+            window.localizedNotice = notice;
+            return notice.lang === '${automatic}';
+          })()`), "automatic language in notice",
+        );
+        async function notices(locale: string, title: string, action: string) {
+          await until(
+            () => d.js(`(() => {
+              const notice = window.localizedNotice;
+              return document.querySelectorAll('[data-vi-notice]').length === 1 &&
+                notice === document.querySelector('#other-story').previousElementSibling &&
+                notice.lang === ${JSON.stringify(locale)} &&
+                notice.firstElementChild.textContent === ${JSON.stringify(title)} &&
+                notice.querySelector('button').textContent === ${JSON.stringify(action)} &&
+                !document.querySelector('#story').hasAttribute('data-vi-covered');
+            })()`), "open notices and revealed card preserved",
+          );
+        }
+        const secondPanel = await d.openPanelTab();
+        try {
+          await panelReady(secondPanel);
+          if (!(await secondPanel.js(`document.querySelector('#language').value === 'auto' &&
+            document.querySelector('[value=smart]').checked && !document.querySelector('input[type=number]') &&
+            !document.querySelector('input[name=x]').checked`))) throw Error("Legacy settings changed");
+          await secondPanel.js(chooseLanguage("es"));
+          await notices("es", "Posible spoiler de GTA VI", "Mostrar");
+          await secondPanel.js(chooseLanguage("en"));
+          await notices("en", "Possible GTA VI spoiler", "Show");
+          if (!(await secondPanel.js(`document.documentElement.lang === 'en' &&
+            !document.querySelector('input[type=number]') &&
+            document.querySelector('#sync').textContent === 'Sync' &&
+            document.querySelector('#status').textContent.startsWith('Last sync')`))) throw Error("Untranslated English popup");
+          await d.js("window.localizedNotice.querySelector('button').click()");
+          await state(false);
+        } finally {
+          await secondPanel.close();
+        }
+        const reopened = await d.openPanelTab();
+        try {
+          await panelReady(reopened);
+          if (!(await reopened.js("document.documentElement.lang === 'en' && document.querySelector('#language').value === 'en'")))
+            throw Error("Language choice did not persist");
+          await d.go(url(cases[0][0]) + "?disguised");
+          await state(true);
+          if (!(await d.js("document.querySelector('[data-vi-notice] button').textContent === 'Show'")))
+            throw Error("English notice missing after reload");
+          await reopened.js(chooseLanguage("es"));
+          await until(() => d.js("document.querySelector('[data-vi-notice][lang=es] button')?.textContent === 'Mostrar'"), "change back to Spanish");
+          await reopened.js("(globalThis.browser ?? chrome).storage.local.set({ settings: { language: 'es' } })");
+        } finally {
+          await reopened.close();
+        }
+        console.log(name, "localization, state preservation, persistence, and removal of legacy progress passed");
+      }
+      await checkLanguages();
       async function revealWhileUpdating(host: string, permalink: string) {
         await d.go(url(host) + "?permalink" + (host === "www.youtube.com" ? "&nested" : ""));
         await state(true);
@@ -466,17 +587,13 @@ try {
         await panel("document.querySelector('#sync').click()");
         await until(() => d.js("!document.querySelector('#sync').disabled"), "sync");
       }
-      const progress = (n: number) =>
-        "const v=document.querySelector('#progress');v.value='" +
-        n +
-        "';v.dispatchEvent(new Event('change',{bubbles:true}))";
       await sync();
       const initialStatus = await d.js(
         "(globalThis.browser??chrome).runtime.sendMessage({type:'status'}).then(JSON.stringify)",
       );
       if (!JSON.parse(initialStatus)?.cursor) throw Error("Initial sync " + initialStatus);
       const detection = await d.js(
-        "(globalThis.browser??chrome).runtime.sendMessage({type:'classify',text:'Rhea traiciona a Milo',context:'GTA VI',progress:null}).then(r=>r.hide)",
+        "(globalThis.browser??chrome).runtime.sendMessage({type:'classify',text:'Rhea traiciona a Milo',context:'GTA VI'}).then(r=>r.hide)",
       );
       if (detection !== true) throw Error("Bilingual classification from the cached catalog failed");
       await panel("document.querySelector('[value=smart]').click()");
@@ -494,12 +611,12 @@ try {
       console.log(name, "smart mode covered disguised spoilers and never warned on benign content across all five sites");
       await d.go(url(cases[0][0]));
       await state(true);
-      await panel(progress(7));
-      await d.go(url(cases[0][0]));
+      const missionPost = url(cases[0][0]) + "?mission8";
+      await d.go(missionPost);
       await state(false);
       version = 2;
       await sync();
-      await d.go(url(cases[0][0]));
+      await d.go(missionPost);
       await state(true);
       offline = true;
       await sync();
@@ -530,6 +647,10 @@ try {
       await sync();
       if (!(await d.js("document.querySelector('output').textContent.includes('No se pudo actualizar')")))
         throw Error("malformed catalog accepted");
+      await d.js(chooseLanguage("en"));
+      if (!(await d.js(`document.querySelector('output').textContent.includes("Couldn't update the catalog.")`)))
+        throw Error("untranslated synchronization error");
+      await d.js(chooseLanguage("es"));
       await d.go(url(cases[0][0]));
       await state(false);
       await panel(
@@ -541,7 +662,7 @@ try {
       await state(true);
       console.log(
         name,
-        "catalog additions, updates, deletions, offline classification, mission progress passed",
+        "catalog additions, mission updates, deletions and offline classification passed",
       );
     } finally {
       await d.close();

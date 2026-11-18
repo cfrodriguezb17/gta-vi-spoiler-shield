@@ -38,7 +38,7 @@ const catalog = [
 ];
 for (const [lang, set] of Object.entries(cases))
   test("held-out sentences " + lang, () => {
-    const score = (q: string) => shouldHide(q, "", catalog, null, wasm);
+    const score = (q: string) => shouldHide(q, "", catalog, wasm);
     const missed = set.spoilers.filter((s) => !score(s)),
       falsePos = set.safe.filter(score);
     console.log(lang, {
@@ -52,13 +52,13 @@ for (const [lang, set] of Object.entries(cases))
     expect(missed.length / set.spoilers.length).toBeLessThanOrEqual(0.1);
     expect(falsePos.length / set.safe.length).toBeLessThanOrEqual(0.05);
   });
-test("reply context, unknown missions, mixed posts and progress", () => {
-  const check = (s: string, ctx = "", p: number | null = 7) => shouldHide(s, ctx, catalog, p, wasm);
+test("reply context, unknown missions and mixed posts", () => {
+  const check = (s: string, ctx = "") => shouldHide(s, ctx, catalog, wasm);
   expect(check("Sí, fue él", "GTA VI Rex rescata a Iris")).toBe(true);
   expect(check("Gracias por la música", "GTA VI Rex rescata a Iris")).toBe(false);
-  expect(check("GTA VI Rhea betrays Milo")).toBe(false);
+  expect(check("GTA VI Rhea betrays Milo")).toBe(true);
   expect(check("GTA VI Rhea betrays Milo. Rex rescues Iris")).toBe(true);
-  expect(check("GTA VI Professor Vale dies", "", 999)).toBe(true);
+  expect(check("GTA VI Professor Vale dies")).toBe(true);
   expect(check("GTA V Rex saves Iris", "GTA VI")).toBe(false);
   expect(gta("r/GTA6")).toBe(true);
   expect(gta("GTA VII")).toBe(false);
@@ -79,7 +79,7 @@ test("detects disguised game names and events in both languages", () => {
     "GTA VI@Rockstar",
   ]) expect(gta(title), title).toBe(true);
 
-  const check = (s: string, ctx = "") => shouldHide(s, ctx, catalog, null, wasm);
+  const check = (s: string, ctx = "") => shouldHide(s, ctx, catalog, wasm);
   expect(check("GТΑ VІ: Rhеa tr@ici0n4 a M1l0")).toBe(true);
   expect(check("𝔊𝔗𝔄 Ⅵ: R.h.e.a b3trayѕ M\u200bilо")).toBe(true);
   expect(check("G.T.A. V.I.: Rhea tra1ciona a Milo en la misión ７")).toBe(true);
@@ -113,7 +113,7 @@ test("official world context and plot stay distinct in intelligent mode", () => 
     confidence: 0.95,
     vector: embed(fact.description, wasm),
   }));
-  const hides = (text: string, context = "") => shouldHide(text, context, published, null, wasm);
+  const hides = (text: string, context = "") => shouldHide(text, context, published, wasm);
 
   expect(gta("Visita a Pоrt Gellhorn y Cal Hampton")).toBe(true);
   expect(gta("Dre’Quan Priest y Bae-Luxe")).toBe(true);
