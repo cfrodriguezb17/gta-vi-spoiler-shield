@@ -7,11 +7,11 @@ Create a Railway project and environments named `staging` and `production`. Use 
 | Railway service | Source and settings |
 | --- | --- |
 | `db` | Pin a reviewed `pgvector/pgvector:pg18-trixie` image digest. Mount a persistent volume at `/var/lib/postgresql`, set `POSTGRES_DB=shield`, set a unique owner password, and keep TCP and HTTP ingress private. |
-| `migrate` | One-shot service using `/ops/migrate.railway.toml`, root directory `/`. Its pre-deploy command uses the schema owner. It exits after a successful migration. |
-| `encoder` | Private service using `/ops/encoder.railway.toml`, root directory `/`. Set `EMBED_PORT=5072`. |
-| `api` | Service using `/ops/api.railway.toml`, root directory `/`. Generate the public Railway HTTPS domain. The app listens on Railway's `PORT`. |
+| `migrate` | One-shot service using the backend Dockerfile. Its pre-deploy command uses the schema owner. It exits after a successful migration. |
+| `encoder` | Private service using the shared Dockerfile. Set `EMBED_PORT=5072`. |
+| `api` | Service using the backend Dockerfile. Generate the public Railway HTTPS domain. The app listens on Railway's `PORT`. |
 
-Set each config file path in that service’s Railway settings. Give the migrator `ConnectionStrings__Catalog` with the database owner and private hostname. Give the API its own connection string using `shield_app`. Use the Railway secret editor or variable references for passwords. Set `EncoderUrl=http://encoder.railway.internal:5072/embed`. Set `CampaignEnabled=false` through rehearsal and restoration. Keep it false in staging.
+With the Railway CLI signed in, run `bun ops/configure-railway.ts PROJECT_ID staging` and repeat for `production`. It sets health checks, the migration command and restart policies through the Railway API. The deploy workflow selects each Dockerfile at the root of its upload. Give the migrator `ConnectionStrings__Catalog` with the database owner and private hostname. Give the API its own connection string using `shield_app`. Use the Railway secret editor or variable references for passwords. Set `EncoderUrl=http://encoder.railway.internal:5072/embed`. Set `CampaignEnabled=false` through rehearsal and restoration. Keep it false in staging.
 
 In each database, run the migration or restore the source schema before granting runtime privileges. In a private `psql` session as owner, run `CREATE ROLE shield_app LOGIN;`, use `\password shield_app` and apply [runtime-role.sql](../ops/runtime-role.sql). Store the runtime credential only in the API service. Provision the vector extension as owner. For future schema changes, grant the runtime role only the additional object permissions it needs.
 

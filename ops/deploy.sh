@@ -5,6 +5,9 @@ printf '%s\n' "$GITHUB_SHA" > backend/revision.txt
 export EXPECT_REVISION="$GITHUB_SHA"
 railway=(bunx --package @railway/cli@5.75.0 railway)
 for service in migrate encoder api; do
+  dockerfile=backend/Dockerfile
+  if [[ $service == encoder ]]; then dockerfile=shared/Dockerfile; fi
+  cp "$dockerfile" Dockerfile
   args=(--project "$RAILWAY_PROJECT_ID" --environment "$TARGET_ENV" --service "$service")
   deployment=$("${railway[@]}" up "${args[@]}" --detach --json --message "$GITHUB_SHA" | jq -er '.deploymentId')
   complete=false
