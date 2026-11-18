@@ -6,9 +6,9 @@
 
 Browse Reddit, YouTube, X, Facebook and Instagram with GTA VI spoilers covered. The bilingual extension hides a whole card, including its thumbnail, and lets you reveal one post at a time with the keyboard or mouse.
 
-| Preventive · default | Smart |
-| --- | --- |
-| Covers cards and replies clearly connected to GTA VI, even on the first offline visit. | Checks the local catalog for known events in English or Spanish, including disguised text. Continues using the last successful download offline. |
+| Preventive · default | Smart | Combined |
+| --- | --- | --- |
+| Covers cards and replies clearly connected to GTA VI, even on the first offline visit. | Checks the local catalog for known events in English or Spanish, including disguised text. Continues using the last successful download offline. | Covers everything Preventive does and checks for story matches even when the post omits the game's name. Also covers short claims about a lead character's death as possible spoilers. |
 
 <img src="docs/media/popup.png" alt="Extension settings with language, filtering mode and five network switches" width="320">
 
@@ -20,7 +20,7 @@ Download `chrome.zip` or the signed `firefox.xpi` from the [latest GitHub releas
 
 - **Chrome desktop** — Extract the release’s `chrome.zip` into a permanent folder. Open `chrome://extensions`, enable Developer mode, choose **Load unpacked** and select that folder. For updates, replace the files in the same folder and click **Reload**.
 - **Firefox desktop** — Open the signed `.xpi` from the release in Firefox and confirm installation. Install newer signed XPIs over the existing add-on. Firefox 140 or later is required.
-- Reload existing social tabs. Use **Language** in the panel for English, Spanish or the browser default. **Sync** checks the public catalog. Smart mode can miss new events and unfamiliar paraphrases. Images and videos are filtered through nearby text and accessible labels.
+- Reload existing social tabs. Use **Language** in the panel for English, Spanish or the browser default. **Sync** checks the public catalog. Images and videos, including Shorts in YouTube search, are filtered through nearby text and accessible labels. Spoilers with too few clues can still slip through.
 
 ## Project
 

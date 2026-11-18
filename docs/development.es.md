@@ -1,6 +1,6 @@
 # Protección de spoilers de GTA VI
 
-Extensión Manifest V3 para Reddit, YouTube, X, Facebook e Instagram. El modo **Preventivo** funciona desde la instalación, incluso con el servidor apagado. Cubre la tarjeta completa, pausa su reproducción y permite revelarla con **Mostrar**. En el panel puedes cambiar al modo **Inteligente** y elegir qué redes proteger.
+Extensión Manifest V3 para Reddit, YouTube, X, Facebook e Instagram. El modo **Preventivo** funciona desde la instalación, incluso con el servidor apagado. Cubre la tarjeta completa, pausa su reproducción y permite revelarla con **Mostrar**. En el panel puedes seleccionar **Inteligente** o **Combinado** y elegir qué redes proteger.
 
 En **Idioma** puedes elegir **Español**, **English** o **Automático (navegador)**. La elección se aplica al panel y a los avisos. El filtro sigue comparando publicaciones en ambos idiomas.
 
@@ -40,7 +40,7 @@ El backend usa las API de Reddit y YouTube y el contenido que publica cada feed 
 
 La búsqueda HNSW de pgvector propone coincidencias. El backend comprueba los papeles, la acción, la negación y la misión antes de fusionar. Una fuente editorial o guía directa puede hacer probable un evento. Una referencia oficial directa o dos orígenes independientes con evidencia directa fiable permiten confirmarlo. Las citas de un mismo origen y los pasajes copiados se agrupan. Los rumores sin atribución carecen de peso para el recuento de orígenes independientes. Las correcciones sustituyen la evidencia del documento y pueden retirar el evento.
 
-`GET /api/world` presenta los personajes, las locaciones y los sucesos divulgados en el material promocional oficial, con sus referencias. La extensión reconoce nombres completos y locaciones distintivas como señales de contexto. En modo Inteligente también debe coincidir un evento publicado. Conserva los títulos de GTA V y los lugares compartidos como Vice City fuera de esas señales por sí solos.
+`GET /api/world` presenta los personajes, las locaciones y los sucesos divulgados en el material promocional oficial, con sus referencias. La extensión reconoce nombres completos y locaciones distintivas como señales de contexto. En modo Inteligente también debe coincidir un evento publicado. El modo Combinado cubre esas señales de contexto y, cuando faltan, también busca coincidencias con la historia. Las menciones exclusivas a GTA V y los lugares compartidos como Vice City por sí solos quedan fuera de las señales de GTA VI.
 
 Para cargar los sucesos verificados en un catálogo nuevo o volver a aplicar la referencia tras editar `shared/official-world.json`, recompila el servicio y ejecuta:
 

@@ -11,6 +11,8 @@ test("automatic language follows Spanish and falls back to English", () => {
   expect(resolveLocale("es", "en-US")).toBe("es");
   expect(translate("es", "showPost")).toBe("Mostrar");
   expect(translate("en", "showPost")).toBe("Show");
+  expect(translate("es", "combined")).toBe("Combinado");
+  expect(translate("en", "combined")).toBe("Combined");
 });
 
 test("existing settings preserve mode and networks and ignore stored progress", () => {
@@ -18,4 +20,6 @@ test("existing settings preserve mode and networks and ignore stored progress", 
   const previous = { ...current, progress: 99 };
   expect(settings(previous)).toEqual({ ...current, language: "auto" });
   expect(settings({ ...previous, language: "es" })).toEqual({ ...current, language: "es" });
+  expect(settings({ ...previous, mode: "combined" })).toEqual({ ...current, mode: "combined", language: "auto" });
+  expect(settings({ mode: "unknown" }).mode).toBe("preventive");
 });

@@ -1,6 +1,6 @@
 import { api, settings, type Settings } from "./api";
 import { siteFor, selectors, cardText, thread, identity } from "./adapters";
-import { gta } from "../shared/model";
+import { gta, possibleStorySpoiler } from "../shared/model";
 import { resolveLocale, translate } from "./i18n";
 const site = siteFor(location.hostname);
 if (site) protect(site);
@@ -110,28 +110,35 @@ function protect(site: NonNullable<ReturnType<typeof siteFor>>) {
     const revealed = previous?.key === key && previous.revealed;
     const state: CardState = { signature, key, revealed, decision: "pending", notice: previous?.notice };
     states.set(card, state);
-    if (config.disabled.includes(site) || revealed || (!gta(text) && !gta(context))) {
+    if (config.disabled.includes(site) || revealed) {
       allow(card, state);
       return;
     }
-    if (config.mode === "preventive") {
+    const related = gta(text) || gta(context),
+      combined = config.mode === "combined";
+    if ((related && config.mode !== "smart") || (combined && possibleStorySpoiler(text, context))) {
       cover(card, state);
+      return;
+    }
+    if ((combined && !text) || (!combined && !related)) {
+      allow(card, state);
       return;
     }
     // Keep the card private during inference without showing a speculative warning.
     card.removeAttribute("data-vi-checked");
     if (previous?.key !== key) removeNotice(card, state);
     pause(card);
-    const timeout = setTimeout(() => finish(true), 3000);
+    const fallback = !combined;
+    const timeout = setTimeout(() => finish(fallback), 3000);
     function finish(hide: boolean) {
       clearTimeout(timeout);
       if (!card.isConnected || states.get(card) !== state || state.decision !== "pending") return;
       if (hide) cover(card, state);
       else allow(card, state);
     }
-    api.runtime.sendMessage({ type: "classify", text, context }).then(
-      (reply: any) => finish(reply?.hide !== false),
-      () => finish(true),
+    api.runtime.sendMessage({ type: "classify", text, context, combined }).then(
+      (reply: any) => finish(typeof reply?.hide === "boolean" ? reply.hide : fallback),
+      () => finish(fallback),
     );
   }
   function all() {

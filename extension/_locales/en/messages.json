@@ -9,6 +9,8 @@
   "preventiveHelp": { "message": "Cover posts related to GTA VI." },
   "smart": { "message": "Smart" },
   "smartHelp": { "message": "Cover posts that match known story events." },
+  "combined": { "message": "Combined" },
+  "combinedHelp": { "message": "Cover GTA VI posts and possible spoilers that omit the game’s name." },
   "protectedNetworks": { "message": "Protected networks" },
   "sync": { "message": "Sync" },
   "lastSync": { "message": "Last sync" },

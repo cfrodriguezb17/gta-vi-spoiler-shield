@@ -118,6 +118,17 @@ const vocabulary: Record<string, string[]> = {
   mission: ["misión", "quest"],
 };
 export const actionForms = (key: string) => [key, ...(vocabulary[key] ?? [])];
+const leadPair = /\b(?:jason (?:and|y) lucia|lucia (?:and|y) jason)\b/;
+const leadDeath = new RegExp(
+  String.raw`\b(?:jason|lucia) (?:${actionForms("die").slice(1).map((form) => words(form).join(" ")).join("|")}|was killed|fue asesinad[oa])\b`,
+  "u",
+);
+export function possibleStorySpoiler(text: string, context: string) {
+  const readable = readableText(text);
+  if (fifthGame.test(readable) || fifthGame.test(readableText(context))) return false;
+  const tokens = words(readable).join(" ");
+  return leadPair.test(tokens) || leadDeath.test(tokens);
+}
 const canonical = new Map<string, string>();
 for (const [key, list] of Object.entries(vocabulary))
   for (const form of [key, ...list]) canonical.set(words(form).join(" "), key);
@@ -241,10 +252,14 @@ function matches(clause: string, e: StoryEvent) {
     }),
   );
 }
-export function shouldHide(text: string, context: string, events: StoryEvent[], wasm: Kernel) {
+export function shouldHide(text: string, context: string, events: StoryEvent[], wasm: Kernel, combined = false) {
+  if (!events.length) return false;
   const readable = readableText(text),
     thread = readableText(context);
-  if (!gameContext(readable) && (fifthGame.test(readable) || !gameContext(thread))) return false;
+  if (!gameContext(readable)) {
+    if (fifthGame.test(readable)) return false;
+    if (!gameContext(thread) && (!combined || fifthGame.test(thread))) return false;
+  }
   const reply = /^\s*(?:yes|yeah|exactly|that's right|it was (?:him|her)|si|exacto|asi es|fue el)\b/.test(
     readable,
   );
@@ -252,11 +267,12 @@ export function shouldHide(text: string, context: string, events: StoryEvent[], 
     .split(/[.!;\n]+|\s+(?:but|pero|whereas)\s+/i)
     .filter(Boolean);
   for (const clause of clauses) {
-    const v = embed(clause, wasm);
-    const ranked = events
-      .map((e) => ({ e, score: e.vector.reduce((sum, x, i) => sum + x * v[i], 0) }))
-      .sort((a, b) => b.score - a.score);
-    if (ranked.some(({ e, score }) => score > 0.04 && matches(clause, e))) return true;
+    let vector: number[] | undefined;
+    if (events.some((e) => {
+      if (!matches(clause, e)) return false;
+      const v = vector ??= embed(clause, wasm);
+      return e.vector.reduce((sum, x, i) => sum + x * v[i], 0) > 0.04;
+    })) return true;
   }
   return false;
 }

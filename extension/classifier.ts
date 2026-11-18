@@ -1,6 +1,6 @@
 import { events } from "./db";
 import { kernel, shouldHide } from "../shared/model";
-export type Query = { text: string; context: string };
+export type Query = { text: string; context: string; combined?: boolean };
 let cached: ReturnType<typeof events> | undefined;
 let wasm: ReturnType<typeof kernel> | undefined;
 export function invalidate() {
@@ -13,5 +13,5 @@ export async function classify(input: Query, asset: string) {
       .then((r) => r.arrayBuffer())
       .then(kernel)),
   ]);
-  return { hide: shouldHide(input.text, input.context, catalog, engine) };
+  return { hide: shouldHide(input.text, input.context, catalog, engine, input.combined === true) };
 }
