@@ -89,6 +89,21 @@ try
     await Record("negated", directed with { Negated = true, Passage = "Rex never rescues Iris." });
     await Record("other-mission", directed with { Mission = 8, Passage = "During mission 8 Rex rescues Iris." });
     Check((await Read(null)).Added.Length == 4, "actor, target, negation and incompatible mission stay separate");
+    var reviewedClaim = new Fact("Una reaches the ferry", "reach", ["reaches", "llega a"],
+        [new("Una", "actor", []), new("Ferry", "target", [])], null, 2, false, "Una reaches the ferry.", true, "");
+    var reviewed = new ReviewedStory("guide", "https://www.guide.invalid/reviewed", clock.Now, reviewedClaim.Passage, [reviewedClaim]);
+    foreach (var invalid in new[] { reviewed with { Url = "https://guide.invalid.example/reviewed" }, reviewed with { Body = "Unrelated passage." } })
+    {
+        try { await ReviewedStory.Import([reviewed, invalid], db, catalog, config, clock, default); throw new Exception("invalid review accepted"); }
+        catch (InvalidDataException) { }
+    }
+    Check(await Number("select count(*) from documents where source='guide-reviewed'") == 0, "reviewed input validated before writes");
+    await ReviewedStory.Import([reviewed], db, catalog, config, clock, default);
+    var reviewedBatch = await Read(null);
+    Check(reviewedBatch.Added.Length == 5 && reviewedBatch.Added.Any(item => item["description"]!.GetValue<string>() == reviewedClaim.Description &&
+        item["status"]!.GetValue<string>() == "probable"), "reviewed article publishes with editorial confidence");
+    await ReviewedStory.Import([reviewed], db, catalog, config, clock, default);
+    Check((await Read(null)).Version == reviewedBatch.Version, "repeat reviewed import is idempotent");
     config["YouTube:Key"] = "fixture";
     config["Reddit:Token"] = "fixture";
     var social = new Connectors(new HttpClient(new SocialFixture()), config);

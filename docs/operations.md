@@ -17,6 +17,8 @@ In each database, run the migration or restore the source schema before granting
 
 Set `Gemini__Key`, `Gemini__Model`, `Gemini__MaxRequests`, `SourceUserAgent` and authorized connector credentials on the production API. Inspect each upstream's permissions and quota. An unavailable source can fail while other sources continue. Google and Railway budgets are independent.
 
+To import manually reviewed coverage, pass a private JSON array to `dotnet Shield.dll import-reviewed-story` on standard input. Each article gives `sourceId` from the configured editorial or guide sources, its canonical `url` and `published` date, the reviewed `body` excerpt, and `facts` in the extractor's format. Each fact needs an exact first-hand `passage` and an empty `origin`. An empty `facts` array retracts earlier reviewed evidence for that URL. The catalog applies its usual confidence rules.
+
 ## Restore and cut over
 
 1. Take a custom-format dump of the local database using `pg_dump -Fc --no-owner --no-acl`. Store dumps outside Git and use encrypted storage and transport. For Compose, run `docker compose exec -T db pg_dump -Fc -U shield -d shield -f /tmp/catalog.dump` and copy it out with `docker compose cp db:/tmp/catalog.dump ./catalog.dump`.

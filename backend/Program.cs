@@ -32,7 +32,7 @@ if (args.Contains("migrate"))
     Console.WriteLine("Catalog schema ready.");
     return;
 }
-if (args.Any(arg => arg is "start-campaign" or "status" or "import-official-world"))
+if (args.Any(arg => arg is "start-campaign" or "status" or "import-official-world" or "import-reviewed-story"))
 {
     await using var db = await pool.OpenConnectionAsync();
     if (args.Contains("start-campaign"))
@@ -55,6 +55,13 @@ if (args.Any(arg => arg is "start-campaign" or "status" or "import-official-worl
         var reference = await OfficialWorld.Load(default);
         await reference.Import(db, app.Services.GetRequiredService<Catalog>(), TimeProvider.System, default);
         Console.WriteLine($"Official reference loaded with {reference.Story.Length} plot events.");
+        return;
+    }
+    if (args.Contains("import-reviewed-story"))
+    {
+        var reviewed = await System.Text.Json.JsonSerializer.DeserializeAsync<ReviewedStory[]>(Console.OpenStandardInput(), Rules.Json);
+        var count = await ReviewedStory.Import(reviewed, db, app.Services.GetRequiredService<Catalog>(), builder.Configuration, TimeProvider.System, default);
+        Console.WriteLine($"Processed {count} reviewed story documents.");
         return;
     }
     throw new ArgumentException("Unknown operator command");
