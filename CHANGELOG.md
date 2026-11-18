@@ -1,11 +1,13 @@
 # Changelog
 
-## 1.2.0
+## 1.2.1
 
 - **EN** — Combined mode covers content related to GTA VI and checks for known story events even when a post omits the game's name.
 - **EN** — YouTube search covers the title and thumbnail of each matching Short and lets you reveal it individually.
+- **EN** — Reddit, X, Facebook and Instagram keep previews concealed while a newly inserted post loads its caption.
 - **ES** — El modo Combinado cubre contenido relacionado con GTA VI y busca eventos conocidos de la historia aunque se omita el nombre del juego.
 - **ES** — Las búsquedas de YouTube cubren el título y la miniatura de cada Short detectado y permiten revelarlo por separado.
+- **ES** — Reddit, X, Facebook e Instagram mantienen ocultas las vistas previas mientras carga el texto de una publicación nueva.
 
 ## 1.1.0
 
