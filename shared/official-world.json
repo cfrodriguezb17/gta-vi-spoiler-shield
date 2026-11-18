@@ -1,0 +1,108 @@
+{
+  "verifiedOn": "2026-11-17",
+  "sources": {
+    "people": {
+      "title": "Only in Leonida – Rockstar Games",
+      "url": "https://www.rockstargames.com/VI/only-in-leonida"
+    },
+    "jason": {
+      "title": "Jason Duval – Rockstar Games",
+      "url": "https://www.rockstargames.com/VI/only-in-leonida/jason",
+      "published": "2025-05-06T00:00:00Z"
+    },
+    "lucia": {
+      "title": "Lucia Caminos – Rockstar Games",
+      "url": "https://www.rockstargames.com/VI/only-in-leonida/lucia",
+      "published": "2025-05-06T00:00:00Z"
+    },
+    "places": {
+      "title": "Galería de escenarios – Rockstar Games",
+      "url": "https://www.rockstargames.com/VI/media/screenshots"
+    },
+    "premise": {
+      "title": "Grand Theft Auto VI Trailer 2 – Rockstar Games",
+      "url": "https://www.rockstargames.com/VI/trailer-2",
+      "published": "2025-05-06T00:00:00Z"
+    },
+    "launch": {
+      "title": "Tráiler de lanzamiento – Rockstar Games",
+      "url": "https://www.rockstargames.com/newswire/article/517572321a549a/watch-the-grand-theft-auto-vi-launch-trailer",
+      "published": "2026-10-15T00:00:00Z"
+    },
+    "ultimate": {
+      "title": "Grand Theft Auto VI: Ultimate Edition – PlayStation",
+      "url": "https://www.playstation.com/en-us/games/grand-theft-auto-vi/"
+    }
+  },
+  "characters": [
+    {"id":"jason-duval","name":"Jason Duval","source":"jason","summary":"Coprotagonista, exmilitar establecido en los Cayos de Leonida.","aliases":["Jason","Duval"],"context":["Jason Duval"]},
+    {"id":"lucia-caminos","name":"Lucia Caminos","source":"lucia","summary":"Coprotagonista. Vivió en Liberty City antes de los sucesos de Leonida.","aliases":["Lucia","Lucía","Lucía Caminos"],"context":["Lucia Caminos"]},
+    {"id":"cal-hampton","name":"Cal Hampton","source":"people","summary":"Amigo de Jason y colaborador de Brian Heder.","context":["Cal Hampton"]},
+    {"id":"boobie-ike","name":"Boobie Ike","source":"people","summary":"Empresario de Vice City y socio de Dre'Quan Priest en Only Raw Records.","context":["Boobie Ike"]},
+    {"id":"drequan-priest","name":"Dre'Quan Priest","source":"people","summary":"Promotor musical y socio de Only Raw Records.","context":["Dre'Quan Priest","DreQuan Priest"]},
+    {"id":"bae-luxe","name":"Bae-Luxe","source":"people","summary":"Rapera que forma el dúo Real Dimez con Roxy.","context":["Bae-Luxe"]},
+    {"id":"roxy","name":"Roxy","source":"people","summary":"Rapera e integrante de Real Dimez."},
+    {"id":"raul-bautista","name":"Raul Bautista","source":"people","summary":"Atracador de bancos que busca colaboradores para sus golpes.","aliases":["Raúl Bautista"],"context":["Raul Bautista"]},
+    {"id":"brian-heder","name":"Brian Heder","source":"people","summary":"Contrabandista que opera un astillero en los Cayos de Leonida.","context":["Brian Heder"]},
+    {"id":"lori","name":"Lori","source":"people","summary":"Esposa de Brian y colaboradora en su operación en los Cayos."},
+    {"id":"dwnply","name":"DWNPLY","source":"people","summary":"Rapero local que colaboró con Real Dimez en uno de sus primeros éxitos.","context":["DWNPLY"]},
+    {"id":"wyman","name":"Wyman","source":"ultimate","summary":"Coleccionista de autos y contacto que encarga un trabajo adicional en la Ultimate Edition."}
+  ],
+  "locations": [
+    {"name":"Leonida","source":"premise","summary":"Estado donde se desarrolla la trama principal.","context":["state of Leonida","estado de Leonida"]},
+    {"name":"Vice City","source":"places","summary":"La metrópolis central del juego."},
+    {"name":"Leonida Keys","source":"places","summary":"Archipiélago costero de Leonida.","context":["Leonida Keys","Cayos de Leonida"]},
+    {"name":"Grassrivers","source":"places","summary":"Región de humedales de Leonida.","context":["Grassrivers"]},
+    {"name":"Port Gellhorn","source":"places","summary":"Zona costera que Rockstar presenta como un antiguo destino turístico.","context":["Port Gellhorn"]},
+    {"name":"Ambrosia","source":"places","summary":"Localidad industrial de Leonida."},
+    {"name":"Mount Kalaga National Park","source":"places","summary":"Parque nacional de Leonida.","context":["Mount Kalaga","Monte Kalaga"]},
+    {"name":"Leonida Penitentiary","source":"lucia","summary":"Penitenciaría mencionada en el pasado de Lucia.","context":["Leonida Penitentiary","Penitenciaría de Leonida"]},
+    {"name":"Liberty City","source":"lucia","summary":"Lugar que figura en el trasfondo de Lucia y su familia."}
+  ],
+  "story": [
+    {
+      "id": "lucia-leaves-prison",
+      "source": "lucia",
+      "summary": "Lucia sale de prisión.",
+      "description": "Lucia Caminos is released from prison",
+      "action": "leave prison",
+      "forms": ["leaves prison","gets out of prison","got out of prison","is released from prison","was released from prison","released from prison","out of prison","sale de prisión","salió de prisión","sale de la cárcel","salió de la cárcel","queda en libertad"],
+      "participants": [{"id":"lucia-caminos","role":"actor"}],
+      "passage": "Fresh out of prison",
+      "severity": 2
+    },
+    {
+      "id": "jason-works-for-smugglers",
+      "source": "jason",
+      "summary": "Tras servir en el Ejército, Jason trabaja con traficantes en los Cayos de Leonida.",
+      "description": "Jason Duval works for local drug runners in the Leonida Keys",
+      "action": "work for drug runners",
+      "forms": ["works for local drug runners","working for local drug runners","works for drug runners","works for smugglers","worked for drug runners","trabaja para traficantes","trabajó para traficantes","trabaja con traficantes","trabaja para narcotraficantes","trabaja con contrabandistas"],
+      "participants": [{"id":"jason-duval","role":"actor"}],
+      "passage": "working for local drug runners",
+      "severity": 2
+    },
+    {
+      "id": "robbery-goes-wrong",
+      "source": "premise",
+      "summary": "Un golpe que parecía sencillo les sale mal a Jason y Lucia.",
+      "description": "Jason Duval and Lucia Caminos are involved in a heist that goes wrong",
+      "action": "heist goes wrong",
+      "forms": ["heist went wrong","score goes wrong","job goes wrong","robbery goes wrong","botched heist","failed heist","atraco sale mal","atraco salió mal","golpe sale mal","golpe salió mal","robo sale mal","robo salió mal","atraco fallido","golpe fallido"],
+      "participants": [{"id":"jason-duval","role":"participant"},{"id":"lucia-caminos","role":"participant"}],
+      "passage": "when an easy score goes wrong",
+      "severity": 3
+    },
+    {
+      "id": "leonida-conspiracy",
+      "source": "premise",
+      "summary": "Jason y Lucia quedan envueltos en una conspiración criminal que abarca Leonida.",
+      "description": "Jason Duval and Lucia Caminos are drawn into a criminal conspiracy across Leonida",
+      "action": "drawn into a conspiracy",
+      "forms": ["drawn into a criminal conspiracy","caught in a conspiracy","caught up in a conspiracy","middle of a criminal conspiracy","end up in a conspiracy","envueltos en una conspiración","atrapados en una conspiración","metidos en una conspiración","en medio de una conspiración"],
+      "participants": [{"id":"jason-duval","role":"participant"},{"id":"lucia-caminos","role":"participant"}],
+      "passage": "in the middle of a criminal conspiracy stretching across the state of Leonida",
+      "severity": 3
+    }
+  ]
+}

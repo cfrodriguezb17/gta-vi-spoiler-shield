@@ -1,0 +1,93 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  width: 320px;
+  margin: 0;
+  background: #f6f7f1;
+  color: #18291e;
+  font:
+    14px/1.45 system-ui,
+    sans-serif;
+}
+main {
+  padding: 20px;
+}
+header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  font: bold 24px Georgia;
+  color: #dcf6b8;
+  background: #224332;
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+}
+h1 {
+  font-size: 19px;
+  margin: 0;
+}
+fieldset {
+  border: 0;
+  margin: 0 0 18px;
+  padding: 0;
+}
+legend,
+label[for] {
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+label {
+  display: block;
+}
+small {
+  display: block;
+  margin: 1px 0 8px 23px;
+  color: #435548;
+}
+input {
+  accent-color: #285c3c;
+}
+input[type="number"] {
+  width: 100%;
+  background: white;
+  border: 1px solid #8a9b8b;
+  border-radius: 5px;
+  padding: 7px;
+  margin-bottom: 18px;
+}
+#networks label {
+  display: inline-flex;
+  gap: 4px;
+  margin-right: 9px;
+  margin-bottom: 5px;
+}
+footer {
+  display: grid;
+  gap: 10px;
+  border-top: 1px solid #cbd3c7;
+  padding-top: 12px;
+}
+output {
+  font-size: 12px;
+}
+button {
+  padding: 8px;
+  background: #28543b;
+  color: white;
+  border: 0;
+  border-radius: 6px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+:focus-visible {
+  outline: 3px solid #4c7926;
+  outline-offset: 2px;
+}

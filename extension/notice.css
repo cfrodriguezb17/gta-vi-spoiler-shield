@@ -1,0 +1,28 @@
+[data-vi-notice] {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-sizing: border-box;
+  padding: 14px 16px;
+  color: #f5f7ef;
+  background: #17231e;
+  border: 1px solid #456451;
+  border-radius: 8px;
+  font: 15px/1.45 system-ui, sans-serif;
+}
+[data-vi-notice] > button {
+  flex: none;
+  padding: 6px 13px;
+  color: #153e29;
+  background: #d8f4c7;
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+[data-vi-notice] > button:focus-visible {
+  outline: 3px solid white;
+  outline-offset: 3px;
+}

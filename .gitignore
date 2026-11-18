@@ -1,0 +1,9 @@
+backend/bin/
+backend/obj/
+tests/server/bin/
+tests/server/obj/
+.work/
+.env
+node_modules/
+/dist/
+

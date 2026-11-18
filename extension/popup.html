@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Protección de GTA VI</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <span aria-hidden="true" class="mark">VI</span>
+        <h1>Protección de spoilers</h1>
+      </header>
+      <form>
+        <fieldset>
+          <legend>Modo de protección</legend>
+          <label><input name="mode" type="radio" value="preventive" checked />Preventivo</label
+          ><small>Cubre las publicaciones relacionadas con GTA VI.</small>
+          <label><input name="mode" type="radio" value="smart" />Inteligente</label
+          ><small>Cubre los eventos conocidos que aún no has superado.</small>
+        </fieldset>
+        <label for="progress">Última misión completada</label
+        ><input id="progress" type="number" min="0" step="1" placeholder="Sin indicar" />
+        <fieldset id="networks"><legend>Redes protegidas</legend></fieldset>
+      </form>
+      <footer>
+        <output id="status" aria-live="polite"></output><button id="sync" type="button">Sincronizar</button>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

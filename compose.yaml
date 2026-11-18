@@ -1,0 +1,46 @@
+services:
+  db:
+    image: pgvector/pgvector:pg18-trixie
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shield
+      POSTGRES_USER: shield
+      POSTGRES_PASSWORD: ${CATALOG_PASSWORD:?Define CATALOG_PASSWORD}
+    volumes:
+      - catalog:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shield -d shield"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  encoder:
+    build: ./shared
+    restart: unless-stopped
+  api:
+    build:
+      context: ./backend
+      additional_contexts:
+        world: ./shared
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      encoder:
+        condition: service_started
+    environment:
+      Urls: http://0.0.0.0:5071
+      ConnectionStrings__Catalog: Host=db;Database=shield;Username=shield
+      DatabasePassword: ${CATALOG_PASSWORD}
+      EncoderUrl: http://encoder:5072/embed
+      Gemini__Key: ${GEMINI_KEY:-}
+      Gemini__Model: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      Gemini__MaxRequests: ${GEMINI_MAX_REQUESTS:-500}
+      YouTube__Key: ${YOUTUBE_KEY:-}
+      Reddit__ClientId: ${REDDIT_CLIENT_ID:-}
+      Reddit__ClientSecret: ${REDDIT_CLIENT_SECRET:-}
+      SourceUserAgent: ${SOURCE_USER_AGENT:-GtaViShield/1.0}
+    ports:
+      - "127.0.0.1:5071:5071"
+volumes:
+  catalog:
+
